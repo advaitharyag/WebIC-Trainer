@@ -15,14 +15,16 @@ class SystemController {
 
         // Global Power Rails
         this.vccNode = this.engine.createNode();
-        this.vccNode.state = STATE_HIGH;
+        this.vccNode.state = STATE_FLOAT; // Start floating until power is ON
         this.vccNode.isVCC = true;
-        this.engine.addDriver(this.vccNode.id, () => STATE_HIGH);
+        this.vccDriver = () => this.isPowered ? STATE_HIGH : STATE_FLOAT;
+        this.engine.addDriver(this.vccNode.id, this.vccDriver);
 
         this.gndNode = this.engine.createNode();
-        this.gndNode.state = STATE_LOW;
+        this.gndNode.state = STATE_FLOAT; // Start floating until power is ON
         this.gndNode.isGND = true;
-        this.engine.addDriver(this.gndNode.id, () => STATE_LOW);
+        this.gndDriver = () => this.isPowered ? STATE_LOW : STATE_FLOAT;
+        this.engine.addDriver(this.gndNode.id, this.gndDriver);
 
         // UI State
         this.isPowered = false;
@@ -42,6 +44,9 @@ class SystemController {
         this.setupSwitches();
         this.setupLEDs();
         this.setupClock();
+        this.setupBCDDecoder();
+        this.setupSevenSegment();
+        this.setupMonoPulse();
         this.setupICModal();
         this.setupRemoveIC();
         this.setupWiringEvents();
@@ -190,6 +195,10 @@ class SystemController {
             this.isPowered = !this.isPowered;
             btn.classList.toggle('active', this.isPowered);
 
+            // Update power rail states
+            this.vccNode.update();
+            this.gndNode.update();
+
             if (this.isPowered) {
                 indicator.style.backgroundColor = 'var(--color-success)';
                 indicator.style.boxShadow = '0 0 20px rgba(48, 209, 88, 0.5)';
@@ -299,6 +308,9 @@ class SystemController {
     }
 
     setupClock() {
+        // Register clock GND pin
+        this.wiring.registerPin('clock-gnd', this.gndNode.id);
+
         // Clock frequencies in Hz
         const frequencies = [
             { freq: 1, pinId: 'clock-1hz' },
@@ -330,6 +342,187 @@ class SystemController {
         });
 
         this.log('System', '⏱️', 'Clock generators initialized (1Hz to 10KHz)');
+    }
+
+    setupBCDDecoder() {
+        const inputPins = ['bcd-a', 'bcd-b', 'bcd-c', 'bcd-d'];
+        const outputPins = ['bcd-out-a', 'bcd-out-b', 'bcd-out-c', 'bcd-out-d'];
+        const display = document.getElementById('bcd-display');
+        
+        // Create nodes for inputs
+        const inputNodes = inputPins.map(pinId => {
+            const node = this.engine.createNode();
+            this.wiring.registerPin(pinId, node.id);
+            return { pinId, node };
+        });
+
+        // Create nodes for outputs and store output states
+        const outputStates = [STATE_FLOAT, STATE_FLOAT, STATE_FLOAT, STATE_FLOAT];
+        const outputNodes = outputPins.map((pinId, index) => {
+            const node = this.engine.createNode();
+            this.wiring.registerPin(pinId, node.id);
+            // Add driver for output node
+            this.engine.addDriver(node.id, () => {
+                return this.isPowered ? outputStates[index] : STATE_FLOAT;
+            });
+            return { pinId, node, index };
+        });
+
+        // Update function to decode BCD and update display
+        const updateDecoder = () => {
+            if (!this.isPowered) {
+                display.querySelector('span').textContent = '--';
+                outputStates.fill(STATE_FLOAT);
+                outputNodes.forEach(({ node }) => this.engine.scheduleNodeUpdate(node.id, 0));
+                return;
+            }
+
+            // Read BCD inputs (A=LSB, D=MSB)
+            const a = inputNodes[0].node.state === STATE_HIGH ? 1 : 0;
+            const b = inputNodes[1].node.state === STATE_HIGH ? 1 : 0;
+            const c = inputNodes[2].node.state === STATE_HIGH ? 1 : 0;
+            const d = inputNodes[3].node.state === STATE_HIGH ? 1 : 0;
+
+            const bcdValue = d * 8 + c * 4 + b * 2 + a;
+
+            // Update display
+            if (bcdValue <= 9) {
+                display.querySelector('span').textContent = bcdValue.toString();
+            } else {
+                display.querySelector('span').textContent = '--'; // Invalid BCD
+            }
+
+            // Update output pins (active LOW outputs for BCD decoder)
+            // Output a = bit 0, b = bit 1, c = bit 2, d = bit 3
+            const newOutputs = [
+                (bcdValue & 1) === 0 ? STATE_LOW : STATE_HIGH, // a
+                ((bcdValue >> 1) & 1) === 0 ? STATE_LOW : STATE_HIGH, // b
+                ((bcdValue >> 2) & 1) === 0 ? STATE_LOW : STATE_HIGH, // c
+                ((bcdValue >> 3) & 1) === 0 ? STATE_LOW : STATE_HIGH  // d
+            ];
+
+            // Update output states and trigger node updates
+            let needsUpdate = false;
+            outputNodes.forEach((out, i) => {
+                if (outputStates[i] !== newOutputs[i]) {
+                    outputStates[i] = newOutputs[i];
+                    needsUpdate = true;
+                    this.engine.scheduleNodeUpdate(out.node.id, 0);
+                }
+            });
+        };
+
+        // Add listeners to input nodes
+        inputNodes.forEach(({ node }) => {
+            this.engine.addListener(node.id, updateDecoder);
+        });
+
+        // Initial update
+        updateDecoder();
+    }
+
+    setupSevenSegment() {
+        const segmentPins = ['seg-a', 'seg-b', 'seg-c', 'seg-d', 'seg-e', 'seg-f', 'seg-g', 'seg-dp'];
+        const display = document.getElementById('seven-seg-display');
+        const displaySpan = display.querySelector('span');
+
+        // Create nodes for segment inputs
+        const segmentNodes = segmentPins.map(pinId => {
+            const node = this.engine.createNode();
+            this.wiring.registerPin(pinId, node.id);
+            return { pinId, node };
+        });
+
+        // Segment patterns for digits 0-9 (common cathode: LOW = ON)
+        const patterns = {
+            0: [0, 0, 0, 0, 0, 0, 1], // a,b,c,d,e,f on, g off
+            1: [1, 0, 0, 1, 1, 1, 1], // b,c on
+            2: [0, 0, 1, 0, 0, 1, 0], // a,b,d,e,g on
+            3: [0, 0, 0, 0, 1, 1, 0], // a,b,c,d,g on
+            4: [1, 0, 0, 1, 1, 0, 0], // b,c,f,g on
+            5: [0, 1, 0, 0, 1, 0, 0], // a,c,d,f,g on
+            6: [0, 1, 0, 0, 0, 0, 0], // a,c,d,e,f,g on
+            7: [0, 0, 0, 1, 1, 1, 1], // a,b,c on
+            8: [0, 0, 0, 0, 0, 0, 0], // all on
+            9: [0, 0, 0, 0, 1, 0, 0]  // a,b,c,d,f,g on
+        };
+
+        // Update function to decode segments and update display
+        const updateDisplay = () => {
+            if (!this.isPowered) {
+                displaySpan.textContent = ' ';
+                return;
+            }
+
+            // Read segment states (common cathode: LOW = segment ON)
+            const segments = segmentNodes.slice(0, 7).map(({ node }) => 
+                node.state === STATE_LOW ? 1 : 0
+            );
+            const dp = segmentNodes[7].node.state === STATE_LOW;
+
+            // Try to match pattern to a digit
+            let digit = null;
+            for (const [d, pattern] of Object.entries(patterns)) {
+                if (pattern.every((val, i) => val === segments[i])) {
+                    digit = d;
+                    break;
+                }
+            }
+
+            // Update display
+            if (digit !== null) {
+                displaySpan.textContent = dp ? digit + '.' : digit;
+            } else {
+                // Show custom character or blank
+                displaySpan.textContent = dp ? '.' : ' ';
+            }
+        };
+
+        // Add listeners to all segment nodes
+        segmentNodes.forEach(({ node }) => {
+            this.engine.addListener(node.id, updateDisplay);
+        });
+
+        // Initial update
+        updateDisplay();
+    }
+
+    setupMonoPulse() {
+        const pulseOutNode = this.engine.createNode();
+        this.wiring.registerPin('pulse-out', pulseOutNode.id);
+        this.wiring.registerPin('pulse-gnd', this.gndNode.id);
+
+        const pulseBtn = document.getElementById('pulse-btn');
+        let pulseActive = false;
+
+        // Driver function for pulse output
+        this.engine.addDriver(pulseOutNode.id, () => {
+            return this.isPowered && pulseActive ? STATE_HIGH : STATE_LOW;
+        });
+
+        pulseBtn.addEventListener('click', () => {
+            if (!this.isPowered) {
+                this.log('System', '⚠️', 'Power must be ON to generate pulse');
+                return;
+            }
+
+            if (pulseActive) return; // Prevent multiple pulses
+
+            pulseActive = true;
+            pulseBtn.style.transform = 'scale(0.9)';
+            pulseBtn.style.backgroundColor = 'var(--color-success)';
+            
+            this.engine.scheduleNodeUpdate(pulseOutNode.id, 0);
+            this.log('System', '⚡', 'Mono pulse generated');
+
+            // Reset after 100ms
+            setTimeout(() => {
+                pulseActive = false;
+                pulseBtn.style.transform = '';
+                pulseBtn.style.backgroundColor = '';
+                this.engine.scheduleNodeUpdate(pulseOutNode.id, 0);
+            }, 100);
+        });
     }
 
     setupICModal() {
@@ -468,9 +661,46 @@ class SystemController {
             this.createPinUI(rightPins, i, socketId);
         }
 
-        // Initialize IC Logic
+        // Auto-connect VCC and GND pins to power rails (like physical trainer)
+        const vccPinId = `${socketId}-pin-${ic.vccPin}`;
+        const gndPinId = `${socketId}-pin-${ic.gndPin}`;
+        
+        // Connect VCC pin to VCC rail
+        const vccWireId = this.wiring.addWire(vccPinId, 'vcc', '#ff3b30');
+        if (vccWireId) {
+            this.drawWire({ id: vccWireId, source: vccPinId, target: 'vcc', color: '#ff3b30' });
+            this.log('Wire', '🔗', `Auto-connected ${icName} VCC (pin ${ic.vccPin}) to +5V`);
+            // Update IC's VCC pin node reference to merged node
+            const vccNodeId = this.wiring.pinToNodeId.get(vccPinId);
+            if (vccNodeId) {
+                const vccNode = this.engine.nodes.get(vccNodeId);
+                if (vccNode) ic.setPinNode(ic.vccPin, vccNode);
+            }
+        }
+        
+        // Connect GND pin to GND rail
+        const gndWireId = this.wiring.addWire(gndPinId, 'gnd', '#000000');
+        if (gndWireId) {
+            this.drawWire({ id: gndWireId, source: gndPinId, target: 'gnd', color: '#000000' });
+            this.log('Wire', '🔗', `Auto-connected ${icName} GND (pin ${ic.gndPin}) to GND`);
+            // Update IC's GND pin node reference to merged node
+            const gndNodeId = this.wiring.pinToNodeId.get(gndPinId);
+            if (gndNodeId) {
+                const gndNode = this.engine.nodes.get(gndNodeId);
+                if (gndNode) ic.setPinNode(ic.gndPin, gndNode);
+            }
+        }
+
+        // Initialize IC Logic (after power connections are made and pin nodes updated)
         if (ic.setup) ic.setup(this.engine);
-        if (ic.runLogic) ic.runLogic(this.engine);
+        // Trigger initial evaluation after setup
+        if (ic.runLogic) {
+            // For LogicGateIC, runLogic is called via listeners, but we should trigger initial eval
+            // For other ICs, runLogic might need to be called
+            setTimeout(() => {
+                if (ic.runLogic) ic.runLogic(this.engine);
+            }, 0);
+        }
 
         this.log('IC', '🧩', `Placed ${icName} in ${socketId}`);
 

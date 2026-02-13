@@ -1510,31 +1510,31 @@
                 <div class="decoder-content">
                     <div class="decoder-pins">
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">A</span>
+                            <div class="socket socket-black" data-pin-id="bcd-a"></div><span class="pin-label">A</span>
                         </div>
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">B</span>
+                            <div class="socket socket-black" data-pin-id="bcd-b"></div><span class="pin-label">B</span>
                         </div>
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">C</span>
+                            <div class="socket socket-black" data-pin-id="bcd-c"></div><span class="pin-label">C</span>
                         </div>
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">D</span>
+                            <div class="socket socket-black" data-pin-id="bcd-d"></div><span class="pin-label">D</span>
                         </div>
                     </div>
-                    <div class="decoder-display"><span>88</span></div>
+                    <div class="decoder-display" id="bcd-display"><span>--</span></div>
                     <div class="decoder-pins">
                         <div class="pin-row"><span class="pin-label">a</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="bcd-out-a"></div>
                         </div>
                         <div class="pin-row"><span class="pin-label">b</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="bcd-out-b"></div>
                         </div>
                         <div class="pin-row"><span class="pin-label">c</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="bcd-out-c"></div>
                         </div>
                         <div class="pin-row"><span class="pin-label">d</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="bcd-out-d"></div>
                         </div>
                     </div>
                 </div>
@@ -1546,31 +1546,31 @@
                 <div class="decoder-content">
                     <div class="decoder-pins">
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">a</span>
+                            <div class="socket socket-black" data-pin-id="seg-a"></div><span class="pin-label">a</span>
                         </div>
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">b</span>
+                            <div class="socket socket-black" data-pin-id="seg-b"></div><span class="pin-label">b</span>
                         </div>
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">c</span>
+                            <div class="socket socket-black" data-pin-id="seg-c"></div><span class="pin-label">c</span>
                         </div>
                         <div class="pin-row">
-                            <div class="socket socket-black"></div><span class="pin-label">d</span>
+                            <div class="socket socket-black" data-pin-id="seg-d"></div><span class="pin-label">d</span>
                         </div>
                     </div>
-                    <div class="decoder-display"><span>8.</span></div>
+                    <div class="decoder-display" id="seven-seg-display"><span>8.</span></div>
                     <div class="decoder-pins">
                         <div class="pin-row"><span class="pin-label">e</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="seg-e"></div>
                         </div>
                         <div class="pin-row"><span class="pin-label">f</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="seg-f"></div>
                         </div>
                         <div class="pin-row"><span class="pin-label">g</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="seg-g"></div>
                         </div>
                         <div class="pin-row"><span class="pin-label">dp</span>
-                            <div class="socket socket-black"></div>
+                            <div class="socket socket-black" data-pin-id="seg-dp"></div>
                         </div>
                     </div>
                 </div>
@@ -1581,22 +1581,22 @@
                 <span class="panel-label">TTL Clock</span>
                 <div class="clock-outputs">
                     <div class="clock-pin"><span class="pin-label">GND</span>
-                        <div class="socket socket-black"></div>
+                        <div class="socket socket-black" data-pin-id="clock-gnd"></div>
                     </div>
                     <div class="clock-pin"><span class="pin-label">1 Hz</span>
-                        <div class="socket socket-yellow"></div>
+                        <div class="socket socket-yellow" data-pin-id="clock-1hz"></div>
                     </div>
                     <div class="clock-pin"><span class="pin-label">10 Hz</span>
-                        <div class="socket socket-yellow"></div>
+                        <div class="socket socket-yellow" data-pin-id="clock-10hz"></div>
                     </div>
                     <div class="clock-pin"><span class="pin-label">100 Hz</span>
-                        <div class="socket socket-yellow"></div>
+                        <div class="socket socket-yellow" data-pin-id="clock-100hz"></div>
                     </div>
                     <div class="clock-pin"><span class="pin-label">1K Hz</span>
-                        <div class="socket socket-yellow"></div>
+                        <div class="socket socket-yellow" data-pin-id="clock-1khz"></div>
                     </div>
                     <div class="clock-pin"><span class="pin-label">10K Hz</span>
-                        <div class="socket socket-yellow"></div>
+                        <div class="socket socket-yellow" data-pin-id="clock-10khz"></div>
                     </div>
                 </div>
             </div>
@@ -1605,9 +1605,9 @@
             <div class="panel pulse-section">
                 <span class="panel-label">Mono Pulse</span>
                 <div class="pulse-control">
-                    <div class="socket socket-red"></div>
-                    <div class="pulse-button"></div>
-                    <div class="socket socket-black"></div>
+                    <div class="socket socket-red" data-pin-id="pulse-out"></div>
+                    <div class="pulse-button" id="pulse-btn"></div>
+                    <div class="socket socket-black" data-pin-id="pulse-gnd"></div>
                 </div>
             </div>
 

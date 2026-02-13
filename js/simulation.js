@@ -36,8 +36,10 @@ export class Node {
         let hasHigh = false;
         let hasLow = false;
         let hasError = false;
+        let driverCount = 0;
 
         for (const driver of this.drivers) {
+            driverCount++;
             const val = driver(); // Generic driver function returning state
             if (val === STATE_ERROR) hasError = true;
             if (val === STATE_HIGH) hasHigh = true;
@@ -59,6 +61,7 @@ export class Node {
     update() {
         const newState = this.resolve();
         if (newState !== this.state) {
+            const oldState = this.state;
             this.state = newState;
             // Notify listeners (Input pins of other ICs)
             for (const listener of this.listeners) {
@@ -67,6 +70,14 @@ export class Node {
             return true; // State changed
         }
         return false;
+    }
+    
+    /**
+     * Force resolve state without triggering listeners
+     * Useful for checking current state
+     */
+    resolveState() {
+        return this.resolve();
     }
 }
 
@@ -95,7 +106,8 @@ export class CircuitEngine {
         const node = this.nodes.get(nodeId);
         if (node) {
             node.drivers.add(driverFn);
-            this.scheduleNodeUpdate(nodeId, 0);
+            // Immediately update node state with new driver
+            node.update();
         }
     }
 
@@ -113,10 +125,19 @@ export class CircuitEngine {
     }
 
     scheduleNodeUpdate(nodeId, delay = 0) {
-        this.schedule(delay, () => {
+        if (delay === 0) {
+            // Immediate update
             const node = this.nodes.get(nodeId);
-            if (node) node.update();
-        });
+            if (node) {
+                node.update();
+            }
+        } else {
+            // Scheduled update
+            this.schedule(delay, () => {
+                const node = this.nodes.get(nodeId);
+                if (node) node.update();
+            });
+        }
     }
 
     schedule(delayNa, task) {

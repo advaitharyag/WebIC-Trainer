@@ -5,12 +5,15 @@
 
 import { CircuitEngine, STATE_LOW, STATE_HIGH, STATE_FLOAT, STATE_ERROR } from './simulation.js';
 import { WiringManager } from './wiring-engine.js';
-import { createIC, IC_CATALOG } from './ic-definitions.js';
+import { icRegistry } from './ic-registration.js';
+import { ClockManager } from './clock-manager.js';
+import { PIN_TYPE } from './ttl-chip.js';
 
 class SystemController {
     constructor() {
         this.engine = new CircuitEngine();
         this.wiring = new WiringManager(this.engine);
+        this.clockManager = new ClockManager(this.engine);
         this.icInstances = new Map(); // socketId -> IC Object
 
         // Global Power Rails
@@ -25,6 +28,11 @@ class SystemController {
         this.gndNode.isGND = true;
         this.gndDriver = () => this.isPowered ? STATE_LOW : STATE_FLOAT;
         this.engine.addDriver(this.gndNode.id, this.gndDriver);
+
+        // Register power rail pins
+        this.wiring.registerPin('vcc', this.vccNode.id, 'POWER');
+        this.wiring.registerPin('gnd', this.gndNode.id, 'POWER');
+        this.wiring.registerPin('gnd-2', this.gndNode.id, 'POWER');
 
         // UI State
         this.isPowered = false;
@@ -71,7 +79,9 @@ class SystemController {
         // Update all socket visual states based on their node states
         document.querySelectorAll('.socket[data-pin-id]').forEach(socket => {
             const pinId = socket.dataset.pinId;
-            const nodeId = this.wiring.pinToNode.get(pinId);
+            if (!pinId) return;
+
+            const nodeId = this.wiring.pinToNodeId.get(pinId);
 
             if (!nodeId) {
                 // Not connected to any node
@@ -80,7 +90,13 @@ class SystemController {
             }
 
             const node = this.engine.nodes.get(nodeId);
-            if (!node) return;
+            if (!node) {
+                socket.classList.remove('state-high', 'state-low', 'state-float', 'state-error');
+                return;
+            }
+
+            // Force node resolution before checking state
+            node.update();
 
             // Remove all state classes
             socket.classList.remove('state-high', 'state-low', 'state-float', 'state-error');
@@ -199,6 +215,16 @@ class SystemController {
             this.vccNode.update();
             this.gndNode.update();
 
+            // Update clock manager power state
+            this.clockManager.setPower(this.isPowered);
+
+            // Trigger re-evaluation of all ICs when power changes
+            setTimeout(() => {
+                this.icInstances.forEach(ic => {
+                    ic.triggerEvaluation();
+                });
+            }, 0);
+
             if (this.isPowered) {
                 indicator.style.backgroundColor = 'var(--color-success)';
                 indicator.style.boxShadow = '0 0 20px rgba(48, 209, 88, 0.5)';
@@ -210,13 +236,7 @@ class SystemController {
             }
         });
 
-        // Register Power Rails Wiring
-        // We added data-pin-id to HTML, but we need to register them to nodes
-        this.wiring.registerPin('vcc', this.vccNode.id);
-        this.wiring.registerPin('gnd', this.gndNode.id);
-        this.wiring.registerPin('gnd-2', this.gndNode.id);
-        // We don't have +/-12V in engine yet, map to Open or Gnd? 
-        // For logic trainer, often just VCC/GND matters.
+        // Power rails already registered in constructor
     }
 
     setupSwitches() {
@@ -247,16 +267,21 @@ class SystemController {
 
             // Logic
             const switchNode = this.engine.createNode();
-            this.wiring.registerPin(`switch-${i}`, switchNode.id);
+            this.wiring.registerPin(`switch-${i}`, switchNode.id, 'OUTPUT');
 
             let switchState = STATE_LOW;
 
             // Driver function
-            this.engine.addDriver(switchNode.id, () => this.isPowered ? switchState : STATE_FLOAT);
+            const switchDriver = () => this.isPowered ? switchState : STATE_FLOAT;
+            this.engine.addDriver(switchNode.id, switchDriver);
+            // Initialize node state
+            switchNode.update();
 
             box.addEventListener('click', () => {
                 box.classList.toggle('active');
                 switchState = box.classList.contains('active') ? STATE_HIGH : STATE_LOW;
+                // Immediately update node state and trigger propagation
+                switchNode.update();
                 this.engine.scheduleNodeUpdate(switchNode.id, 0); // Trigger update
             });
         }
@@ -287,29 +312,38 @@ class SystemController {
 
             // Logic
             const ledNode = this.engine.createNode();
-            this.wiring.registerPin(`led-${i}-in`, ledNode.id);
+            this.wiring.registerPin(`led-${i}-in`, ledNode.id, 'INPUT');
 
             this.engine.addListener(ledNode.id, (state) => {
+                console.log(`LED ${i} listener triggered, state: ${state === STATE_HIGH ? 'HIGH' : state === STATE_LOW ? 'LOW' : state === STATE_FLOAT ? 'FLOAT' : 'ERROR'}, powered: ${this.isPowered}`);
                 if (!this.isPowered) {
                     led.className = 'led';
+                    led.style.backgroundColor = '';
                     return;
                 }
-                if (state === STATE_HIGH) led.className = 'led on';
-                else if (state === STATE_ERROR) {
+                if (state === STATE_HIGH) {
+                    led.className = 'led on';
+                    led.style.backgroundColor = '';
+                    console.log(`LED ${i} turned ON`);
+                } else if (state === STATE_ERROR) {
                     led.className = 'led on';
                     led.style.backgroundColor = 'purple';
                 }
                 else {
                     led.className = 'led';
                     led.style.backgroundColor = '';
+                    console.log(`LED ${i} turned OFF (state: ${state})`);
                 }
             });
+
+            // Initial update
+            ledNode.update();
         }
     }
 
     setupClock() {
         // Register clock GND pin
-        this.wiring.registerPin('clock-gnd', this.gndNode.id);
+        this.wiring.registerPin('clock-gnd', this.gndNode.id, 'POWER');
 
         // Clock frequencies in Hz
         const frequencies = [
@@ -322,23 +356,8 @@ class SystemController {
 
         frequencies.forEach(({ freq, pinId }) => {
             const clockNode = this.engine.createNode();
-            this.wiring.registerPin(pinId, clockNode.id);
-
-            let clockState = STATE_LOW;
-            const halfPeriod = (1000 / freq) / 2; // Half period in milliseconds
-
-            // Driver function that returns current clock state
-            this.engine.addDriver(clockNode.id, () => {
-                return this.isPowered ? clockState : STATE_FLOAT;
-            });
-
-            // Toggle clock state at the specified frequency
-            setInterval(() => {
-                if (this.isPowered) {
-                    clockState = (clockState === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
-                    this.engine.scheduleNodeUpdate(clockNode.id, 0);
-                }
-            }, halfPeriod);
+            this.wiring.registerPin(pinId, clockNode.id, 'OUTPUT');
+            this.clockManager.registerClock(freq, clockNode.id, pinId);
         });
 
         this.log('System', '⏱️', 'Clock generators initialized (1Hz to 10KHz)');
@@ -348,11 +367,11 @@ class SystemController {
         const inputPins = ['bcd-a', 'bcd-b', 'bcd-c', 'bcd-d'];
         const outputPins = ['bcd-out-a', 'bcd-out-b', 'bcd-out-c', 'bcd-out-d'];
         const display = document.getElementById('bcd-display');
-        
+
         // Create nodes for inputs
         const inputNodes = inputPins.map(pinId => {
             const node = this.engine.createNode();
-            this.wiring.registerPin(pinId, node.id);
+            this.wiring.registerPin(pinId, node.id, 'INPUT');
             return { pinId, node };
         });
 
@@ -360,7 +379,7 @@ class SystemController {
         const outputStates = [STATE_FLOAT, STATE_FLOAT, STATE_FLOAT, STATE_FLOAT];
         const outputNodes = outputPins.map((pinId, index) => {
             const node = this.engine.createNode();
-            this.wiring.registerPin(pinId, node.id);
+            this.wiring.registerPin(pinId, node.id, 'OUTPUT');
             // Add driver for output node
             this.engine.addDriver(node.id, () => {
                 return this.isPowered ? outputStates[index] : STATE_FLOAT;
@@ -429,7 +448,7 @@ class SystemController {
         // Create nodes for segment inputs
         const segmentNodes = segmentPins.map(pinId => {
             const node = this.engine.createNode();
-            this.wiring.registerPin(pinId, node.id);
+            this.wiring.registerPin(pinId, node.id, 'INPUT');
             return { pinId, node };
         });
 
@@ -455,7 +474,7 @@ class SystemController {
             }
 
             // Read segment states (common cathode: LOW = segment ON)
-            const segments = segmentNodes.slice(0, 7).map(({ node }) => 
+            const segments = segmentNodes.slice(0, 7).map(({ node }) =>
                 node.state === STATE_LOW ? 1 : 0
             );
             const dp = segmentNodes[7].node.state === STATE_LOW;
@@ -489,8 +508,8 @@ class SystemController {
 
     setupMonoPulse() {
         const pulseOutNode = this.engine.createNode();
-        this.wiring.registerPin('pulse-out', pulseOutNode.id);
-        this.wiring.registerPin('pulse-gnd', this.gndNode.id);
+        this.wiring.registerPin('pulse-out', pulseOutNode.id, 'OUTPUT');
+        this.wiring.registerPin('pulse-gnd', this.gndNode.id, 'POWER');
 
         const pulseBtn = document.getElementById('pulse-btn');
         let pulseActive = false;
@@ -511,7 +530,7 @@ class SystemController {
             pulseActive = true;
             pulseBtn.style.transform = 'scale(0.9)';
             pulseBtn.style.backgroundColor = 'var(--color-success)';
-            
+
             this.engine.scheduleNodeUpdate(pulseOutNode.id, 0);
             this.log('System', '⚡', 'Mono pulse generated');
 
@@ -535,18 +554,18 @@ class SystemController {
         let selectedIC = null;
         let targetSocket = null;
 
-        // Populate Grid
-        Object.entries(IC_CATALOG).forEach(([key, ic]) => {
+        // Populate Grid from registry
+        icRegistry.getAll().forEach(icInfo => {
             const card = document.createElement('div');
             card.className = 'ic-card';
             card.innerHTML = `
-                <div class="ic-card-name">${key}</div>
-                <div class="ic-card-desc">${ic.desc}</div>
+                <div class="ic-card-name">${icInfo.id}</div>
+                <div class="ic-card-desc">${icInfo.description}</div>
             `;
             card.onclick = () => {
                 document.querySelectorAll('.ic-card').forEach(c => c.classList.remove('selected'));
                 card.classList.add('selected');
-                selectedIC = key;
+                selectedIC = icInfo.id;
                 confirm.disabled = false;
             };
             grid.appendChild(card);
@@ -621,7 +640,7 @@ class SystemController {
 
     placeIC(icName, socketElement, pushHistory = true) {
         const socketId = socketElement.id;
-        const ic = createIC(icName, socketId);
+        const ic = icRegistry.create(icName, socketId);
         if (!ic) return;
 
         this.icInstances.set(socketId, ic);
@@ -664,7 +683,10 @@ class SystemController {
         // Auto-connect VCC and GND pins to power rails (like physical trainer)
         const vccPinId = `${socketId}-pin-${ic.vccPin}`;
         const gndPinId = `${socketId}-pin-${ic.gndPin}`;
-        
+
+        console.log(`[DEBUG] Before power wires - VCC rail node:`, this.vccNode.id, 'drivers:', this.vccNode.drivers.size);
+        console.log(`[DEBUG] Before power wires - GND rail node:`, this.gndNode.id, 'drivers:', this.gndNode.drivers.size);
+
         // Connect VCC pin to VCC rail
         const vccWireId = this.wiring.addWire(vccPinId, 'vcc', '#ff3b30');
         if (vccWireId) {
@@ -672,12 +694,17 @@ class SystemController {
             this.log('Wire', '🔗', `Auto-connected ${icName} VCC (pin ${ic.vccPin}) to +5V`);
             // Update IC's VCC pin node reference to merged node
             const vccNodeId = this.wiring.pinToNodeId.get(vccPinId);
+            console.log(`[DEBUG] After VCC wire - merged node ID:`, vccNodeId);
             if (vccNodeId) {
                 const vccNode = this.engine.nodes.get(vccNodeId);
-                if (vccNode) ic.setPinNode(ic.vccPin, vccNode);
+                console.log(`[DEBUG] VCC merged node:`, vccNode?.id, 'drivers:', vccNode?.drivers.size, 'state:', vccNode?.state);
+                if (vccNode) {
+                    ic.setPinNode(ic.vccPin, vccNode);
+                    console.log(`[DEBUG] Set IC VCC pin ${ic.vccPin} to node`, vccNode.id);
+                }
             }
         }
-        
+
         // Connect GND pin to GND rail
         const gndWireId = this.wiring.addWire(gndPinId, 'gnd', '#000000');
         if (gndWireId) {
@@ -685,22 +712,29 @@ class SystemController {
             this.log('Wire', '🔗', `Auto-connected ${icName} GND (pin ${ic.gndPin}) to GND`);
             // Update IC's GND pin node reference to merged node
             const gndNodeId = this.wiring.pinToNodeId.get(gndPinId);
+            console.log(`[DEBUG] After GND wire - merged node ID:`, gndNodeId);
             if (gndNodeId) {
                 const gndNode = this.engine.nodes.get(gndNodeId);
-                if (gndNode) ic.setPinNode(ic.gndPin, gndNode);
+                console.log(`[DEBUG] GND merged node:`, gndNode?.id, 'drivers:', gndNode?.drivers.size, 'state:', gndNode?.state);
+                if (gndNode) {
+                    ic.setPinNode(ic.gndPin, gndNode);
+                    console.log(`[DEBUG] Set IC GND pin ${ic.gndPin} to node`, gndNode.id);
+                }
             }
         }
 
         // Initialize IC Logic (after power connections are made and pin nodes updated)
-        if (ic.setup) ic.setup(this.engine);
-        // Trigger initial evaluation after setup
-        if (ic.runLogic) {
-            // For LogicGateIC, runLogic is called via listeners, but we should trigger initial eval
-            // For other ICs, runLogic might need to be called
-            setTimeout(() => {
-                if (ic.runLogic) ic.runLogic(this.engine);
-            }, 0);
+        ic.setup(this.engine);
+
+        // Enable debug mode for LS08 (can be toggled)
+        if (icName === '74LS08') {
+            ic.setDebug(true);
         }
+
+        // Trigger initial evaluation after a short delay to ensure all nodes are connected
+        setTimeout(() => {
+            ic.triggerEvaluation();
+        }, 10);
 
         this.log('IC', '🧩', `Placed ${icName} in ${socketId}`);
 
@@ -751,9 +785,12 @@ class SystemController {
 
         // Logic
         const node = this.engine.createNode();
-        this.wiring.registerPin(pinId, node.id);
-
         const ic = this.icInstances.get(socketId);
+
+        // Get pin type from IC
+        const pinType = ic.pinTypes[pinNum] || 'INPUT';
+        this.wiring.registerPin(pinId, node.id, pinType, ic);
+
         ic.setPinNode(pinNum, node);
     }
 
@@ -776,18 +813,42 @@ class SystemController {
             this.log('Wire', '🔗', `Connected ${wire.source} to ${wire.target}`);
         };
 
+        this.wiring.onWireError = (sourcePin, targetPin, error) => {
+            this.log('Wire', '⚠️', `Wiring error: ${error}`);
+        };
+
         this.wiring.onNetUpdate = (pins, newNode) => {
             pins.forEach(pinId => {
+                // Handle IC pins: format is "ic-X-pin-Y"
                 if (pinId.startsWith('ic-')) {
                     const parts = pinId.split('-');
-                    const icId = `${parts[0]}-${parts[1]}`;
-                    const pinNum = parseInt(parts[3]);
-                    const ic = this.icInstances.get(icId);
-                    if (ic) {
-                        ic.setPinNode(pinNum, newNode);
+                    if (parts.length >= 4 && parts[2] === 'pin') {
+                        const icId = `${parts[0]}-${parts[1]}`;
+                        const pinNum = parseInt(parts[3]);
+                        const ic = this.icInstances.get(icId);
+                        if (ic && !isNaN(pinNum)) {
+                            ic.setPinNode(pinNum, newNode);
+                            // Trigger re-evaluation after pin node update
+                            setTimeout(() => {
+                                ic.triggerEvaluation();
+                            }, 0);
+                        }
                     }
                 }
             });
+
+            // After merging nodes, force update to notify all listeners (including LEDs)
+            // This ensures LEDs get updated when a wire connects them to an output
+            setTimeout(() => {
+                newNode.update();
+                // Also force notification if state didn't change but listeners need update
+                const resolvedState = newNode.resolve();
+                if (resolvedState !== STATE_FLOAT) {
+                    for (const listener of newNode.listeners) {
+                        listener(resolvedState);
+                    }
+                }
+            }, 0);
         };
 
         // Wire Mode Selection
@@ -1082,4 +1143,101 @@ class SystemController {
 // Start Controller when DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
     window.controller = new SystemController();
+
+    // Global debug function for ICs
+    window.debugIC = (icName) => {
+        const ic = Array.from(window.controller.icInstances.values())
+            .find(chip => chip.name === icName || chip.id.includes(icName));
+        if (ic) {
+            ic.setDebug(true);
+            console.log(`Debug enabled for ${ic.name} (${ic.id})`);
+            console.log('Power status:', ic.isPowered());
+            console.log('Pin states:', ic.getPinConfig());
+            return ic;
+        } else {
+            console.log('IC not found. Available ICs:',
+                Array.from(window.controller.icInstances.values()).map(c => c.name));
+            return null;
+        }
+    };
+
+    // Global function to check IC state
+    window.checkIC = (icName) => {
+        const ic = Array.from(window.controller.icInstances.values())
+            .find(chip => chip.name === icName || chip.id.includes(icName));
+        if (ic) {
+            // Force node updates before checking
+            const vccNode = ic.getPinNode(ic.vccPin);
+            const gndNode = ic.getPinNode(ic.gndPin);
+            if (vccNode) vccNode.update();
+            if (gndNode) gndNode.update();
+
+            console.log(`=== ${ic.name} (${ic.id}) ===`);
+            console.log('System Power:', window.controller.isPowered);
+            console.log('IC Powered:', ic.isPowered());
+            console.log('VCC pin:', ic.vccPin, 'Node:', vccNode?.id, 'State:', vccNode?.state,
+                vccNode?.state === STATE_HIGH ? '(HIGH ✓)' : vccNode?.state === STATE_FLOAT ? '(FLOAT - Turn ON Power!)' : '(LOW ✗)');
+            console.log('GND pin:', ic.gndPin, 'Node:', gndNode?.id, 'State:', gndNode?.state,
+                gndNode?.state === STATE_LOW ? '(LOW ✓)' : gndNode?.state === STATE_FLOAT ? '(FLOAT - Turn ON Power!)' : '(HIGH ✗)');
+            console.log('Output states:', Object.fromEntries(ic.outputStates));
+            console.log('\nPin States:');
+            for (let pin = 1; pin <= ic.pinCount; pin++) {
+                const node = ic.getPinNode(pin);
+                const pinType = ic.pinTypes[pin];
+                if (node && (pinType === 'INPUT' || pinType === 'OUTPUT')) {
+                    node.update(); // Force update
+                    const state = node.state;
+                    const stateStr = state === STATE_HIGH ? 'HIGH' : state === STATE_LOW ? 'LOW' : state === STATE_FLOAT ? 'FLOAT' : 'ERROR';
+                    const inputState = pinType === 'INPUT' ? ic.getInputState(pin) : null;
+                    const inputStr = inputState !== null ? ` (reads as: ${inputState === STATE_HIGH ? 'HIGH' : inputState === STATE_LOW ? 'LOW' : 'FLOAT'})` : '';
+                    console.log(`  Pin ${pin} (${pinType}): ${stateStr}${inputStr}`);
+                }
+            }
+            console.log('\nTo fix: Click the Power button (top-left) to turn ON power!');
+            return ic;
+        }
+        return null;
+    };
+
+    // Global function to turn power ON/OFF
+    window.setPower = (on) => {
+        if (window.controller.isPowered !== on) {
+            document.getElementById('power-btn').click();
+        }
+        console.log(`Power is now ${window.controller.isPowered ? 'ON' : 'OFF'}`);
+    };
+
+    // Global function to test LED connection
+    window.testLED = (ledIndex, pinId) => {
+        const ledNodeId = window.controller.wiring.pinToNodeId.get(`led-${ledIndex}-in`);
+        const pinNodeId = window.controller.wiring.pinToNodeId.get(pinId);
+
+        console.log(`Testing LED ${ledIndex} connection:`);
+        console.log(`  LED node ID: ${ledNodeId}`);
+        console.log(`  Pin node ID: ${pinNodeId}`);
+        console.log(`  Connected: ${ledNodeId === pinNodeId}`);
+
+        if (ledNodeId) {
+            const ledNode = window.controller.engine.nodes.get(ledNodeId);
+            if (ledNode) {
+                ledNode.update();
+                console.log(`  LED node state: ${ledNode.state === STATE_HIGH ? 'HIGH' : ledNode.state === STATE_LOW ? 'LOW' : 'FLOAT'}`);
+                console.log(`  LED node drivers: ${ledNode.drivers.size}`);
+                console.log(`  LED node listeners: ${ledNode.listeners.size}`);
+                if (ledNode.drivers.size > 0) {
+                    const driverVal = Array.from(ledNode.drivers)[0]();
+                    console.log(`  Driver returns: ${driverVal === STATE_HIGH ? 'HIGH' : driverVal === STATE_LOW ? 'LOW' : 'FLOAT'}`);
+                }
+            }
+        }
+
+        if (pinNodeId) {
+            const pinNode = window.controller.engine.nodes.get(pinNodeId);
+            if (pinNode) {
+                pinNode.update();
+                console.log(`  Pin node state: ${pinNode.state === STATE_HIGH ? 'HIGH' : pinNode.state === STATE_LOW ? 'LOW' : 'FLOAT'}`);
+                console.log(`  Pin node drivers: ${pinNode.drivers.size}`);
+            }
+        }
+    };
 });

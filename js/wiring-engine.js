@@ -11,26 +11,78 @@ export class WiringManager {
         this.wires = []; // { id, source: pinId, target: pinId, color }
         this.connections = new Map(); // pinId -> Set(pinId) (Adjacency List)
         this.pinToNodeId = new Map(); // pinId -> simulationNodeId
+        this.pinTypes = new Map(); // pinId -> 'INPUT' | 'OUTPUT' | 'POWER' | 'CLOCK'
+        this.pinToIC = new Map(); // pinId -> IC instance
 
         // Listeners for UI updates
         this.onWireAdded = null;
         this.onWireRemoved = null;
         this.onNetUpdate = null; // When a net changes state (color update)
+        this.onWireError = null; // When wiring validation fails
     }
 
     /**
-     * formatting: pinId is a string, e.g. "ic-1-pin-3" or "myswitch-1"
+     * Register pin type and IC reference
      */
+    registerPinType(pinId, pinType, icInstance = null) {
+        this.pinTypes.set(pinId, pinType);
+        if (icInstance) {
+            this.pinToIC.set(pinId, icInstance);
+        }
+    }
 
-    addWire(sourcePin, targetPin, color = 'var(--color-text)') {
-        if (sourcePin === targetPin) return;
+    /**
+     * Validate wire connection
+     */
+    validateWire(sourcePin, targetPin) {
+        // Check for self-connection
+        if (sourcePin === targetPin) {
+            return { valid: false, error: 'Cannot connect pin to itself' };
+        }
 
         // Check if wire already exists
         const existing = this.wires.find(w =>
             (w.source === sourcePin && w.target === targetPin) ||
             (w.source === targetPin && w.target === sourcePin)
         );
-        if (existing) return;
+        if (existing) {
+            return { valid: false, error: 'Wire already exists' };
+        }
+
+        const sourceType = this.pinTypes.get(sourcePin);
+        const targetType = this.pinTypes.get(targetPin);
+
+        // Prevent output-to-output connection
+        if (sourceType === 'OUTPUT' && targetType === 'OUTPUT') {
+            return { valid: false, error: 'Cannot connect output to output' };
+        }
+
+        // Prevent VCC to GND short
+        if ((sourcePin === 'vcc' && targetPin === 'gnd') || 
+            (sourcePin === 'gnd' && targetPin === 'vcc')) {
+            return { valid: false, error: 'Cannot short VCC to GND' };
+        }
+
+        // Check for power rail conflicts
+        if (sourcePin === 'vcc' && targetPin === 'gnd') {
+            return { valid: false, error: 'Cannot connect VCC to GND' };
+        }
+
+        return { valid: true };
+    }
+
+    /**
+     * formatting: pinId is a string, e.g. "ic-1-pin-3" or "myswitch-1"
+     */
+    addWire(sourcePin, targetPin, color = 'var(--color-text)') {
+        // Validate connection
+        const validation = this.validateWire(sourcePin, targetPin);
+        if (!validation.valid) {
+            if (this.onWireError) {
+                this.onWireError(sourcePin, targetPin, validation.error);
+            }
+            return null;
+        }
 
         const wireId = `wire_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
@@ -74,8 +126,11 @@ export class WiringManager {
      * Registers a physical pin with a logical node ID.
      * Called when an IC is socketed.
      */
-    registerPin(pinId, nodeId) {
+    registerPin(pinId, nodeId, pinType = null, icInstance = null) {
         this.pinToNodeId.set(pinId, nodeId);
+        if (pinType) {
+            this.registerPinType(pinId, pinType, icInstance);
+        }
     }
 
     /**
@@ -87,11 +142,13 @@ export class WiringManager {
 
         if (nodeA && nodeB && nodeA !== nodeB) {
             const newNodeId = this.engine.mergeNodes(nodeA, nodeB);
+            const newNode = this.engine.nodes.get(newNodeId);
 
             // Update all pins on this net to point to the new node ID
             // We need to traverse the graph starting from pinA to find all connected pins
             const visited = new Set();
             const stack = [pinA];
+            const updatedPins = [];
 
             while (stack.length > 0) {
                 const p = stack.pop();
@@ -99,6 +156,7 @@ export class WiringManager {
                 visited.add(p);
 
                 this.pinToNodeId.set(p, newNodeId);
+                updatedPins.push(p);
 
                 const neighbors = this.connections.get(p);
                 if (neighbors) {
@@ -106,6 +164,12 @@ export class WiringManager {
                         stack.push(n);
                     }
                 }
+            }
+
+            // Notify system that pins have been merged to a new node
+            // This allows ICs to update their pin node references
+            if (this.onNetUpdate && updatedPins.length > 0) {
+                this.onNetUpdate(updatedPins, newNode);
             }
         }
     }

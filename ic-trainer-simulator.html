@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital IC Trainer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #f5f5f7;
+            --color-surface: #ffffff;
+            --color-text: #1d1d1f;
+            --color-text-secondary: #6e6e73;
+            --color-accent: #0071e3;
+            --color-success: #30d158;
+            --color-warning: #ff9f0a;
+            --color-danger: #ff3b30;
+            --color-border: #d2d2d7;
+            --color-shadow: rgba(0, 0, 0, 0.08);
+            --color-panel-bg: #ffffff;
+            --color-panel-hover: #fafafa;
+            --color-socket-hole: #86868b;
+            --color-zif-bg: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+            --color-zif-border: #166534;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+        }
+
+        [data-theme="dark"] {
+            --color-bg: #000000;
+            --color-surface: #1c1c1e;
+            --color-text: #f5f5f7;
+            --color-text-secondary: #98989d;
+            --color-accent: #0a84ff;
+            --color-success: #32d74b;
+            --color-warning: #ff9f0a;
+            --color-danger: #ff453a;
+            --color-border: #38383a;
+            --color-shadow: rgba(0, 0, 0, 0.3);
+            --color-panel-bg: #1c1c1e;
+            --color-panel-hover: #2c2c2e;
+            --color-socket-hole: #636366;
+            --color-zif-bg: linear-gradient(135deg, #0a4d2a 0%, #063920 100%);
+            --color-zif-border: #0a3d20;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            animation: fadeInDown 0.6s ease-out;
+            position: relative;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 0;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px var(--color-shadow);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px var(--color-shadow);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--color-text);
+            fill: none;
+            stroke-width: 2;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle .sun-icon {
+            display: none;
+        }
+
+        [data-theme="dark"] .theme-toggle .sun-icon {
+            display: block;
+        }
+
+        [data-theme="dark"] .theme-toggle .moon-icon {
+            display: none;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: fadeInUp 0.8s ease-out 0.2s backwards;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            box-shadow: 0 2px 8px var(--color-shadow);
+        }
+
+        .group-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--color-text-secondary);
+            padding-right: 8px;
+            border-right: 1px solid var(--color-border);
+        }
+
+        .control-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
+            color: var(--color-text);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--color-panel-hover);
+            border-color: var(--color-border);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-btn.active {
+            background: var(--color-accent);
+            color: white;
+            border-color: var(--color-accent);
+        }
+
+        .control-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                gap: 12px;
+            }
+
+            .control-group {
+                flex-direction: column;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .group-label {
+                border-right: none;
+                border-bottom: 1px solid var(--color-border);
+                padding-right: 0;
+                padding-bottom: 8px;
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--color-surface);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-header {
+            margin-bottom: 24px;
+        }
+
+        .modal-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+
+        .modal-header p {
+            font-size: 15px;
+            color: var(--color-text-secondary);
+        }
+
+        .modal-section {
+            margin-bottom: 24px;
+        }
+
+        .modal-section h3 {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--color-text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .ic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .ic-card {
+            background: var(--color-panel-bg);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ic-card:hover {
+            border-color: var(--color-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--color-shadow);
+        }
+
+        .ic-card.selected {
+            border-color: var(--color-accent);
+            background: var(--color-accent);
+            color: white;
+        }
+
+        .ic-card.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+            position: relative;
+        }
+
+        .ic-card.locked::after {
+            content: '🔒';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 16px;
+        }
+
+        .ic-card-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .ic-card-desc {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .ic-card.selected .ic-card-desc {
+            opacity: 1;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .modal-btn {
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .modal-btn-cancel {
+            background: transparent;
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+
+        .modal-btn-cancel:hover {
+            background: var(--color-panel-hover);
+        }
+
+        .modal-btn-confirm {
+            background: var(--color-accent);
+            color: white;
+        }
+
+        .modal-btn-confirm:hover {
+            opacity: 0.9;
+        }
+
+        .modal-btn-confirm:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* IC Selection Mode */
+        .ic-socket.selectable {
+            cursor: pointer;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .ic-socket.selectable:hover {
+            border-color: var(--color-accent);
+            border-width: 2px;
+        }
+
+        /* Pin number labels */
+        .pin-number {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--color-text);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Activity Terminal */
+        .terminal-container {
+            background: var(--color-surface);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 2px 8px var(--color-shadow), 0 8px 32px rgba(0, 0, 0, 0.04);
+            max-width: 1400px;
+            width: 100%;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease-out 0.4s backwards;
+        }
+
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, var(--color-panel-bg) 0%, var(--color-panel-hover) 100%);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .terminal-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .terminal-title svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--color-accent);
+        }
+
+        .terminal-clear {
+            padding: 6px 16px;
+            background: transparent;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            color: var(--color-text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .terminal-clear:hover {
+            background: var(--color-panel-hover);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .terminal-body {
+            padding: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: var(--color-panel-bg);
+        }
+
+        .terminal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: var(--color-border);
+            border-radius: 4px;
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb:hover {
+            background: var(--color-text-secondary);
+        }
+
+        .log-entry {
+            display: grid;
+            grid-template-columns: 80px 24px 1fr;
+            gap: 12px;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            animation: logFadeIn 0.3s ease-out;
+        }
+
+        .log-entry:hover {
+            background: var(--color-panel-hover);
+        }
+
+        .log-time {
+            color: var(--color-text-secondary);
+            font-size: 11px;
+        }
+
+        .log-icon {
+            font-size: 14px;
+        }
+
+        .log-text {
+            color: var(--color-text);
+        }
+
+        .log-entry.system .log-icon {
+            color: var(--color-accent);
+        }
+
+        .log-entry.power .log-icon {
+            color: var(--color-warning);
+        }
+
+        .log-entry.ic .log-icon {
+            color: var(--color-success);
+        }
+
+        .log-entry.wire .log-icon {
+            color: #8e44ad;
+        }
+
+        .log-entry.delete .log-icon {
+            color: var(--color-danger);
+        }
+
+        .log-highlight {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        @keyframes logFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Enhanced socket hover for better wiring UX */
+        .socket.wire-source {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 3px var(--color-accent);
+            animation: socketPulse 1s ease-in-out infinite;
+        }
+
+        .socket.wire-preview {
+            box-shadow: 0 0 0 2px var(--color-success);
+        }
+
+        @keyframes socketPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 3px var(--color-accent);
+                opacity: 1;
+            }
+
+            50% {
+                box-shadow: 0 0 0 6px rgba(0, 113, 227, 0.3);
+                opacity: 0.8;
+            }
+        }
+
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #1d1d1f 0%, #6e6e73 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 17px;
+            color: var(--color-text-secondary);
+            font-weight: 400;
+        }
+
+        /* Main Container */
+        .board-container {
+            background: var(--color-surface);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 2px 8px var(--color-shadow);
+            padding: 24px;
+            max-width: 1400px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 24px;
+            animation: fadeInUp 0.8s ease-out 0.6s backwards;
+            position: relative;
+            /* Essential for wire layer */
+        }
+
+        #wire-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* Allow clicks to pass through to sockets */
+            z-index: 100;
+            /* Above everything else */
+            overflow: visible;
+        }
+
+        @media (max-width: 768px) {
+            .board-container {
+                grid-template-columns: 1fr;
+                padding: 20px;
+                gap: 16px;
+            }
+        }
+
+        /* Power Panel */
+        .power-panel {
+            background: var(--color-panel-bg);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            border: 1px solid var(--color-border);
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .power-panel {
+                flex-direction: row;
+                justify-content: center;
+                padding: 16px;
+            }
+        }
+
+        .power-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--color-success);
+            box-shadow: 0 0 20px rgba(48, 209, 88, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .power-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--color-text-secondary);
+        }
+
+        .power-button {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--color-surface);
+            border: 2px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .power-button:hover {
+            transform: scale(1.05);
+            border-color: var(--color-accent);
+        }
+
+        .power-button:active {
+            transform: scale(0.95);
+        }
+
+        .power-button.active {
+            background: var(--color-accent);
+            border-color: var(--color-accent);
+        }
+
+        .power-button svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--color-text);
+            stroke-width: 2;
+            transition: stroke 0.2s ease;
+        }
+
+        .power-button.active svg {
+            stroke: white;
+        }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+        }
+
+        /* Panel Base */
+        .panel {
+            background: var(--color-panel-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            position: relative;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .panel:hover {
+            background: var(--color-panel-hover);
+            box-shadow: 0 4px 16px var(--color-shadow);
+        }
+
+        @media (max-width: 768px) {
+            .panel {
+                padding: 16px;
+            }
+        }
+
+        .panel-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--color-text-secondary);
+            position: absolute;
+            top: 12px;
+            left: 20px;
+        }
+
+        /* Output LEDs Section */
+        .output-section {
+            grid-column: span 12;
+            min-height: 100px;
+        }
+
+        .output-leds {
+            display: flex;
+            justify-content: space-between;
+            padding: 40px 24px 16px;
+            gap: 8px;
+        }
+
+        .led-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .led {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #e5e5e7;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .led.on {
+            background: var(--color-danger);
+            box-shadow: 0 0 16px rgba(255, 59, 48, 0.6), 0 0 4px rgba(255, 59, 48, 0.8);
+        }
+
+        .led-number {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        /* Socket Styles */
+        .socket {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid;
+            background: var(--color-surface);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 20;
+        }
+
+        .socket::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: var(--color-socket-hole);
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .socket:hover {
+            transform: scale(1.1);
+        }
+
+        .socket:hover::after {
+            background: var(--color-text);
+        }
+
+        .socket.connected::after {
+            background: var(--color-accent);
+            box-shadow: 0 0 6px var(--color-accent);
+        }
+
+        .socket-red {
+            border-color: var(--color-danger);
+        }
+
+        .socket-black {
+            border-color: var(--color-text);
+        }
+
+        .socket-green {
+            border-color: var(--color-success);
+        }
+
+        .socket-yellow {
+            border-color: var(--color-warning);
+        }
+
+        /* Pin State Indicators - Real-time visual feedback */
+        .socket.state-high {
+            box-shadow: 0 0 8px rgba(255, 59, 48, 0.6), 0 0 12px rgba(255, 59, 48, 0.3);
+            background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%) !important;
+        }
+
+        .socket.state-low {
+            box-shadow: 0 0 8px rgba(0, 122, 255, 0.6), 0 0 12px rgba(0, 122, 255, 0.3);
+            background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%) !important;
+        }
+
+        .socket.state-float {
+            box-shadow: 0 0 6px rgba(142, 142, 147, 0.4);
+            background: linear-gradient(135deg, #8e8e93 0%, #aeaeb2 100%) !important;
+        }
+
+        .socket.state-error {
+            box-shadow: 0 0 10px rgba(175, 82, 222, 0.8), 0 0 16px rgba(175, 82, 222, 0.4);
+            background: linear-gradient(135deg, #af52de 0%, #bf5af2 100%) !important;
+            animation: errorPulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes errorPulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        /* Decoder Section */
+        .decoder-section {
+            grid-column: span 3;
+            min-height: 140px;
+        }
+
+        .decoder-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            height: calc(100% - 40px);
+            margin-top: 40px;
+        }
+
+        .decoder-pins {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .pin-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pin-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text);
+            min-width: 12px;
+        }
+
+        .decoder-display {
+            background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .decoder-display span {
+            color: #ff3b30;
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            text-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
+        }
+
+        /* Clock Section */
+        .clock-section {
+            grid-column: span 4;
+            min-height: 140px;
+        }
+
+        .clock-outputs {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: calc(100% - 40px);
+            margin-top: 40px;
+            padding-bottom: 16px;
+        }
+
+        .clock-pin {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Pulse Section */
+        .pulse-section {
+            grid-column: span 2;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 20px;
+        }
+
+        .pulse-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .pulse-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pulse-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .pulse-button:active {
+            transform: scale(0.95);
+        }
+
+        /* IC Sockets */
+        .ic-section {
+            grid-column: span 12;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            min-height: 340px;
+        }
+
+        @media (max-width: 1024px) {
+            .ic-section {
+                grid-column: span 6;
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .ic-section {
+                grid-column: span 1;
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+        }
+
+        .ic-socket {
+            background: var(--color-panel-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            position: relative;
+            padding: 24px;
+            transition: all 0.3s ease;
+            min-height: 320px;
+        }
+
+        .ic-socket:hover {
+            box-shadow: 0 8px 24px var(--color-shadow);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .ic-socket {
+                padding: 20px;
+                min-height: 280px;
+            }
+        }
+
+        .zif-body {
+            background: var(--color-zif-bg);
+            border: 2px solid var(--color-zif-border);
+            border-radius: 6px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 36px;
+            height: 180px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .zif-lever {
+            background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+            border: 1px solid #9ca3af;
+            position: absolute;
+            width: 6px;
+            height: 100%;
+            left: -8px;
+            border-radius: 3px 0 0 3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .zif-lever:hover {
+            background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+        }
+
+        .ic-pin-container {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+        }
+
+        .ic-pin-container.left {
+            left: 24px;
+        }
+
+        .ic-pin-container.right {
+            right: 24px;
+        }
+
+        .ic-pin {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ic-pin.right {
+            flex-direction: row-reverse;
+        }
+
+        .ic-power {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ic-power.vcc {
+            top: 24px;
+            right: 24px;
+        }
+
+        .ic-power.gnd {
+            bottom: 24px;
+            left: 24px;
+        }
+
+        .power-label-ic {
+            font-size: 8px;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Power Supply Section */
+        .power-supply-section {
+            grid-column: span 3;
+            min-height: 100px;
+        }
+
+        .power-supply-grid {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: calc(100% - 40px);
+            margin-top: 40px;
+            padding: 0 16px;
+        }
+
+        .power-socket-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Input Switches Section */
+        .input-section {
+            grid-column: span 9;
+            min-height: 100px;
+        }
+
+        .input-switches {
+            display: flex;
+            justify-content: space-between;
+            padding: 40px 24px 16px;
+            gap: 8px;
+        }
+
+        .switch-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .switch-box {
+            width: 12px;
+            height: 28px;
+            background: #e5e5e7;
+            border-radius: 6px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .switch-box:hover {
+            background: #d1d1d6;
+        }
+
+        .switch-knob {
+            width: 10px;
+            height: 14px;
+            background: linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
+            border-radius: 4px;
+            position: absolute;
+            left: 1px;
+            top: 1px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .switch-box.active .switch-knob {
+            top: 13px;
+            background: linear-gradient(135deg, var(--color-accent) 0%, #005bb5 100%);
+        }
+
+        .switch-number {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        /* Wiring Layer */
+        #wire-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .wire-path {
+            fill: none;
+            stroke-width: 2.5px;
+            stroke-linecap: round;
+            opacity: 0.85;
+            pointer-events: stroke;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .wire-path:hover {
+            stroke-width: 3.5px;
+            opacity: 1;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        }
+
+        .wire-path.selected {
+            stroke-width: 4px;
+            opacity: 1;
+            animation: wirePulse 1s ease-in-out infinite;
+        }
+
+        /* Wire connection count indicator */
+        .connection-count {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--color-accent);
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 25;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        @keyframes wirePulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* Additional mobile responsiveness */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 32px;
+            }
+
+            .header p {
+                font-size: 15px;
+            }
+
+            .output-section,
+            .decoder-section,
+            .clock-section,
+            .pulse-section,
+            .power-supply-section,
+            .input-section {
+                grid-column: span 1 !important;
+            }
+
+            .output-leds,
+            .input-switches {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .decoder-content {
+                gap: 12px;
+            }
+
+            .clock-outputs {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 1200px) and (min-width: 769px) {
+            .decoder-section {
+                grid-column: span 6;
+            }
+
+            .clock-section {
+                grid-column: span 6;
+            }
+
+            .pulse-section {
+                grid-column: span 6;
+            }
+
+            .power-supply-section {
+                grid-column: span 6;
+            }
+
+            .input-section {
+                grid-column: span 6;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Digital IC Trainer</h1>
+        <p>Professional Circuit Design & Testing Platform</p>
+        <div class="theme-toggle" id="theme-toggle">
+            <svg class="moon-icon" viewBox="0 0 24 24">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <svg class="sun-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="control-group">
+            <span class="group-label">Circuit</span>
+            <button class="control-btn" id="add-ic-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" />
+                    <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" />
+                    <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <span>Add IC</span>
+            </button>
+            <button class="control-btn" id="remove-ic-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" />
+                    <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <span>Remove IC</span>
+            </button>
+        </div>
+
+        <div class="control-group">
+            <span class="group-label">Wiring Mode</span>
+            <button class="control-btn active" id="drag-wire-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h7m6 0h7" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Drag & Drop</span>
+            </button>
+            <button class="control-btn" id="click-wire-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="5" cy="12" r="2" fill="currentColor" />
+                    <circle cx="19" cy="12" r="2" fill="currentColor" />
+                    <path d="M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Click to Connect</span>
+            </button>
+        </div>
+
+        <div class="control-group">
+            <span class="group-label">Actions</span>
+            <button class="control-btn" id="remove-wire-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    <circle cx="21" cy="12" r="2" fill="currentColor" />
+                    <circle cx="3" cy="12" r="2" fill="currentColor" />
+                    <line x1="15" y1="6" x2="21" y2="18" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <span>Remove Wire</span>
+            </button>
+            <button class="control-btn" id="undo-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M3 7v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-9 9" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Undo</span>
+            </button>
+            <button class="control-btn" id="redo-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M21 7v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 9 9" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Redo</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Activity Terminal -->
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-title">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <polyline points="4 17 10 11 4 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <line x1="12" y1="19" x2="20" y2="19" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" />
+                </svg>
+                <span>Activity Log</span>
+            </div>
+            <button class="terminal-clear" id="clear-log">Clear</button>
+        </div>
+        <div class="terminal-body" id="activity-log">
+            <div class="log-entry system">
+                <span class="log-time">00:00:00</span>
+                <span class="log-icon">⚡</span>
+                <span class="log-text">System initialized. Ready for circuit design.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="board-container">
+        <svg id="wire-layer"></svg>
+
+        <div class="power-panel">
+            <div class="power-indicator"></div>
+            <span class="power-label">Power</span>
+            <div class="power-button" id="power-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                    <line x1="12" y1="2" x2="12" y2="12"></line>
+                </svg>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Output LEDs -->
+            <div class="panel output-section">
+                <span class="panel-label">Output Indicators</span>
+                <div class="output-leds" id="output-leds"></div>
+            </div>
+
+            <!-- BCD to Decimal -->
+            <div class="panel decoder-section">
+                <span class="panel-label">BCD to Decimal</span>
+                <div class="decoder-content">
+                    <div class="decoder-pins">
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">A</span>
+                        </div>
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">B</span>
+                        </div>
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">C</span>
+                        </div>
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">D</span>
+                        </div>
+                    </div>
+                    <div class="decoder-display"><span>88</span></div>
+                    <div class="decoder-pins">
+                        <div class="pin-row"><span class="pin-label">a</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                        <div class="pin-row"><span class="pin-label">b</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                        <div class="pin-row"><span class="pin-label">c</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                        <div class="pin-row"><span class="pin-label">d</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7 Segment Display -->
+            <div class="panel decoder-section">
+                <span class="panel-label">7-Segment Display</span>
+                <div class="decoder-content">
+                    <div class="decoder-pins">
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">a</span>
+                        </div>
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">b</span>
+                        </div>
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">c</span>
+                        </div>
+                        <div class="pin-row">
+                            <div class="socket socket-black"></div><span class="pin-label">d</span>
+                        </div>
+                    </div>
+                    <div class="decoder-display"><span>8.</span></div>
+                    <div class="decoder-pins">
+                        <div class="pin-row"><span class="pin-label">e</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                        <div class="pin-row"><span class="pin-label">f</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                        <div class="pin-row"><span class="pin-label">g</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                        <div class="pin-row"><span class="pin-label">dp</span>
+                            <div class="socket socket-black"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TTL Clock -->
+            <div class="panel clock-section">
+                <span class="panel-label">TTL Clock</span>
+                <div class="clock-outputs">
+                    <div class="clock-pin"><span class="pin-label">GND</span>
+                        <div class="socket socket-black"></div>
+                    </div>
+                    <div class="clock-pin"><span class="pin-label">1 Hz</span>
+                        <div class="socket socket-yellow"></div>
+                    </div>
+                    <div class="clock-pin"><span class="pin-label">10 Hz</span>
+                        <div class="socket socket-yellow"></div>
+                    </div>
+                    <div class="clock-pin"><span class="pin-label">100 Hz</span>
+                        <div class="socket socket-yellow"></div>
+                    </div>
+                    <div class="clock-pin"><span class="pin-label">1K Hz</span>
+                        <div class="socket socket-yellow"></div>
+                    </div>
+                    <div class="clock-pin"><span class="pin-label">10K Hz</span>
+                        <div class="socket socket-yellow"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mono Pulse -->
+            <div class="panel pulse-section">
+                <span class="panel-label">Mono Pulse</span>
+                <div class="pulse-control">
+                    <div class="socket socket-red"></div>
+                    <div class="pulse-button"></div>
+                    <div class="socket socket-black"></div>
+                </div>
+            </div>
+
+            <!-- IC Sockets -->
+            <div class="ic-section">
+                <div class="ic-socket" id="ic-1"></div>
+                <div class="ic-socket" id="ic-2"></div>
+                <div class="ic-socket" id="ic-3"></div>
+                <div class="ic-socket" id="ic-4"></div>
+            </div>
+
+            <!-- Power Supply -->
+            <div class="panel power-supply-section">
+                <span class="panel-label">Power Supply</span>
+                <div class="power-supply-grid">
+                    <div class="power-socket-group">
+                        <span class="pin-label">GND</span>
+                        <div class="socket socket-black" data-pin-id="gnd"></div>
+                    </div>
+                    <div class="power-socket-group">
+                        <span class="pin-label">+5V</span>
+                        <div class="socket socket-red" data-pin-id="vcc"></div>
+                    </div>
+                    <div class="power-socket-group">
+                        <span class="pin-label">-12V</span>
+                        <div class="socket socket-green" data-pin-id="v-12"></div>
+                    </div>
+                    <div class="power-socket-group">
+                        <span class="pin-label">0V</span>
+                        <div class="socket socket-black" data-pin-id="gnd-2"></div>
+                    </div>
+                    <div class="power-socket-group">
+                        <span class="pin-label">+12V</span>
+                        <div class="socket socket-yellow" data-pin-id="v+12"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logic Input Switches -->
+            <div class="panel input-section">
+                <span class="panel-label">Logic Input Switches</span>
+                <div class="input-switches" id="input-switches"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IC Selection Modal -->
+    <div class="modal-overlay" id="ic-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Select IC Component</h2>
+                <p>Choose an integrated circuit for your project</p>
+            </div>
+
+            <div class="modal-section">
+                <h3>Available Components</h3>
+                <div class="ic-grid" id="available-ics">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="modal-cancel">Cancel</button>
+                <button class="modal-btn modal-btn-confirm" id="modal-confirm" disabled>Select IC</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/ui.js"></script>
+</body>
+
+</html>

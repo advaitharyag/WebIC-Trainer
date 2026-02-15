@@ -671,16 +671,18 @@ class SystemController {
         const leftPins = socketElement.querySelector('.left');
         const rightPins = socketElement.querySelector('.right');
 
-        // Left: sidePins + 1 to pinCount (Top-Down)
-        // User wants higher numbered pins on LEFT side
-        for (let i = sidePins + 1; i <= ic.pinCount; i++) {
-            this.createPinUI(leftPins, i, socketId);
-        }
+        // Real DIP IC layout (counter-clockwise pin numbering):
+        // CSS: .right container is visually on LEFT, .left container is visually on RIGHT
+        // So: put pins 1-7 in 'right' container, pins 14-8 in 'left' container
 
-        // Right: 1 to sidePins (Top-Down)
-        // User wants lower numbered pins on RIGHT side
+        // Right container (visually LEFT side): 1, 2, 3, 4, 5, 6, 7 (or 8 for 16-pin)
         for (let i = 1; i <= sidePins; i++) {
             this.createPinUI(rightPins, i, socketId);
+        }
+
+        // Left container (visually RIGHT side): 14, 13, 12, 11, 10, 9, 8 (or 16, 15, 14... for 16-pin)
+        for (let i = ic.pinCount; i > sidePins; i--) {
+            this.createPinUI(leftPins, i, socketId);
         }
 
         // Auto-connect VCC and GND pins to power rails (like physical trainer)

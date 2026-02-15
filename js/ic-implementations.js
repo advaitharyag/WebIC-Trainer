@@ -17,7 +17,7 @@ import { STATE_LOW, STATE_HIGH, STATE_FLOAT, STATE_ERROR } from './simulation.js
 export class LS00 extends TTLChip {
     constructor(id, name = '74LS00') {
         super(id, name, 14);
-        
+
         // Configure pin types
         this.setPinType(1, PIN_TYPE.INPUT);  // A1
         this.setPinType(2, PIN_TYPE.INPUT);  // B1
@@ -77,7 +77,7 @@ export class LS00 extends TTLChip {
 export class LS02 extends TTLChip {
     constructor(id, name = '74LS02') {
         super(id, name, 14);
-        
+
         this.setPinType(1, PIN_TYPE.OUTPUT); // Y1
         this.setPinType(2, PIN_TYPE.INPUT);  // A1
         this.setPinType(3, PIN_TYPE.INPUT);  // B1
@@ -126,7 +126,7 @@ export class LS02 extends TTLChip {
 export class LS04 extends TTLChip {
     constructor(id, name = '74LS04') {
         super(id, name, 14);
-        
+
         this.setPinType(1, PIN_TYPE.INPUT);  // A1
         this.setPinType(2, PIN_TYPE.OUTPUT); // Y1
         this.setPinType(3, PIN_TYPE.INPUT);  // A2
@@ -192,31 +192,31 @@ export class LS04 extends TTLChip {
 export class LS08 extends TTLChip {
     constructor(id, name = '74LS08') {
         super(id, name, 14);
-        
+
         // Gate 1: pins 1, 2 -> 3
         this.setPinType(1, PIN_TYPE.INPUT);  // 1A
         this.setPinType(2, PIN_TYPE.INPUT);  // 1B
         this.setPinType(3, PIN_TYPE.OUTPUT); // 1Y
-        
+
         // Gate 2: pins 4, 5 -> 6
         this.setPinType(4, PIN_TYPE.INPUT);  // 2A
         this.setPinType(5, PIN_TYPE.INPUT);  // 2B
         this.setPinType(6, PIN_TYPE.OUTPUT); // 2Y
-        
+
         // Gate 3: pins 9, 10 -> 8
         this.setPinType(9, PIN_TYPE.INPUT);  // 3A
         this.setPinType(10, PIN_TYPE.INPUT); // 3B
         this.setPinType(8, PIN_TYPE.OUTPUT); // 3Y
-        
+
         // Gate 4: pins 12, 13 -> 11
         this.setPinType(12, PIN_TYPE.INPUT); // 4A
         this.setPinType(13, PIN_TYPE.INPUT); // 4B
         this.setPinType(11, PIN_TYPE.OUTPUT); // 4Y
-        
+
         // Power pins
         this.setPinType(7, PIN_TYPE.POWER);  // GND
         this.setPinType(14, PIN_TYPE.POWER); // VCC
-        
+
         // Debug flag
         this.debug = false;
     }
@@ -231,7 +231,7 @@ export class LS08 extends TTLChip {
     evaluate() {
         // Check power status
         const powered = this.isPowered();
-        
+
         if (this.debug) {
             console.log(`[${this.name}] Power check:`, {
                 vccPin: this.vccPin,
@@ -307,7 +307,7 @@ export class LS08 extends TTLChip {
 export class LS32 extends TTLChip {
     constructor(id, name = '74LS32') {
         super(id, name, 14);
-        
+
         this.setPinType(1, PIN_TYPE.INPUT);  // A1
         this.setPinType(2, PIN_TYPE.INPUT);  // B1
         this.setPinType(3, PIN_TYPE.OUTPUT); // Y1
@@ -355,7 +355,7 @@ export class LS32 extends TTLChip {
 export class LS86 extends TTLChip {
     constructor(id, name = '74LS86') {
         super(id, name, 14);
-        
+
         this.setPinType(1, PIN_TYPE.INPUT);  // A1
         this.setPinType(2, PIN_TYPE.INPUT);  // B1
         this.setPinType(3, PIN_TYPE.OUTPUT); // Y1
@@ -407,7 +407,7 @@ export class LS86 extends TTLChip {
 export class LS74 extends TTLChip {
     constructor(id, name = '74LS74') {
         super(id, name, 14);
-        
+
         // FF1
         this.setPinType(1, PIN_TYPE.INPUT);  // CLR1 (active LOW)
         this.setPinType(2, PIN_TYPE.INPUT);  // D1
@@ -415,7 +415,7 @@ export class LS74 extends TTLChip {
         this.setPinType(4, PIN_TYPE.INPUT);  // PR1 (active LOW)
         this.setPinType(5, PIN_TYPE.OUTPUT); // Q1
         this.setPinType(6, PIN_TYPE.OUTPUT); // Q1'
-        
+
         // FF2
         this.setPinType(13, PIN_TYPE.INPUT); // CLR2 (active LOW)
         this.setPinType(12, PIN_TYPE.INPUT); // D2
@@ -423,10 +423,10 @@ export class LS74 extends TTLChip {
         this.setPinType(10, PIN_TYPE.INPUT); // PR2 (active LOW)
         this.setPinType(9, PIN_TYPE.OUTPUT); // Q2
         this.setPinType(8, PIN_TYPE.OUTPUT); // Q2'
-        
+
         this.setPinType(7, PIN_TYPE.POWER);  // GND
         this.setPinType(14, PIN_TYPE.POWER); // VCC
-        
+
         // Internal state
         this.internalState = {
             ff1: { q: STATE_LOW, lastClk: STATE_FLOAT },
@@ -445,7 +445,7 @@ export class LS74 extends TTLChip {
         }
 
         const updates = [];
-        
+
         // Evaluate FF1
         const clr1 = this.getInputState(1);
         const d1 = this.getInputState(2);
@@ -453,9 +453,9 @@ export class LS74 extends TTLChip {
         const pr1 = this.getInputState(4);
         const lastClk1 = this.internalState.ff1.lastClk;
         this.internalState.ff1.lastClk = clk1;
-        
+
         let q1 = this.internalState.ff1.q;
-        
+
         // Async clear (active LOW)
         if (clr1 === STATE_LOW && pr1 === STATE_HIGH) {
             q1 = STATE_LOW;
@@ -472,13 +472,13 @@ export class LS74 extends TTLChip {
         else if (lastClk1 === STATE_LOW && clk1 === STATE_HIGH) {
             q1 = d1;
         }
-        
+
         this.internalState.ff1.q = q1;
         const q1bar = (q1 === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
-        
+
         updates.push({ pin: 5, state: q1 });
         updates.push({ pin: 6, state: q1bar });
-        
+
         // Evaluate FF2
         const clr2 = this.getInputState(13);
         const d2 = this.getInputState(12);
@@ -486,9 +486,9 @@ export class LS74 extends TTLChip {
         const pr2 = this.getInputState(10);
         const lastClk2 = this.internalState.ff2.lastClk;
         this.internalState.ff2.lastClk = clk2;
-        
+
         let q2 = this.internalState.ff2.q;
-        
+
         if (clr2 === STATE_LOW && pr2 === STATE_HIGH) {
             q2 = STATE_LOW;
         } else if (pr2 === STATE_LOW && clr2 === STATE_HIGH) {
@@ -498,13 +498,13 @@ export class LS74 extends TTLChip {
         } else if (lastClk2 === STATE_LOW && clk2 === STATE_HIGH) {
             q2 = d2;
         }
-        
+
         this.internalState.ff2.q = q2;
         const q2bar = (q2 === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
-        
+
         updates.push({ pin: 9, state: q2 });
         updates.push({ pin: 8, state: q2bar });
-        
+
         return updates;
     }
 
@@ -520,17 +520,17 @@ export class LS74 extends TTLChip {
 /**
  * 74LS76 - Dual JK Negative-Edge-Triggered Flip-Flop
  * Pinout: 16-pin DIP
- * 1=CLK1, 2=PR1, 3=CLR1, 4=J1, 5=VCC, 6=K1, 7=GND, 8=Q2', 9=Q2, 10=CLR2, 11=PR2, 12=CLK2, 13=K2, 14=GND, 15=Q1, 16=Q1'
- * Note: Non-standard pinout, VCC=5, GND=7,13
+ * 1=CLK1, 2=PR1, 3=CLR1, 4=J1, 5=VCC, 6=K1, 7=Q1', 8=Q2', 9=Q2, 10=CLR2, 11=J2, 12=CLK2, 13=GND, 14=K2, 15=Q1, 16=PR2
+ * Note: Non-standard pinout, VCC=5, GND=13
  */
 export class LS76 extends TTLChip {
     constructor(id, name = '74LS76') {
         super(id, name, 16);
-        
+
         // Custom power pins
         this.vccPin = 5;
-        this.gndPin = 7;
-        
+        this.gndPin = 13;
+
         // FF1
         this.setPinType(1, PIN_TYPE.CLOCK);  // CLK1
         this.setPinType(2, PIN_TYPE.INPUT);  // PR1 (active LOW)
@@ -538,23 +538,20 @@ export class LS76 extends TTLChip {
         this.setPinType(4, PIN_TYPE.INPUT);  // J1
         this.setPinType(6, PIN_TYPE.INPUT);  // K1
         this.setPinType(15, PIN_TYPE.OUTPUT); // Q1
-        this.setPinType(16, PIN_TYPE.OUTPUT); // Q1'
-        
+        this.setPinType(7, PIN_TYPE.OUTPUT); // Q1'
+
         // FF2
         this.setPinType(12, PIN_TYPE.CLOCK); // CLK2
-        this.setPinType(11, PIN_TYPE.INPUT); // PR2 (active LOW)
+        this.setPinType(16, PIN_TYPE.INPUT); // PR2 (active LOW)
         this.setPinType(10, PIN_TYPE.INPUT); // CLR2 (active LOW)
-        this.setPinType(14, PIN_TYPE.INPUT); // J2 (Note: pin 14 is GND, checking datasheet...)
-        // Actually, pin 14 is GND, so J2 must be elsewhere. Let me check standard pinout.
-        // Standard 74LS76: 1=CLK1, 2=PR1, 3=CLR1, 4=J1, 5=VCC, 6=K1, 7=GND, 8=Q2', 9=Q2, 10=CLR2, 11=PR2, 12=CLK2, 13=K2, 14=J2, 15=Q1, 16=Q1'
-        this.setPinType(14, PIN_TYPE.INPUT); // J2
-        this.setPinType(13, PIN_TYPE.INPUT); // K2
+        this.setPinType(11, PIN_TYPE.INPUT); // J2
+        this.setPinType(14, PIN_TYPE.INPUT); // K2
         this.setPinType(9, PIN_TYPE.OUTPUT); // Q2
         this.setPinType(8, PIN_TYPE.OUTPUT); // Q2'
-        
+
         this.setPinType(5, PIN_TYPE.POWER);  // VCC
-        this.setPinType(7, PIN_TYPE.POWER);  // GND
-        
+        this.setPinType(13, PIN_TYPE.POWER);  // GND
+
         this.internalState = {
             ff1: { q: STATE_LOW, lastClk: STATE_FLOAT },
             ff2: { q: STATE_LOW, lastClk: STATE_FLOAT }
@@ -572,7 +569,7 @@ export class LS76 extends TTLChip {
         }
 
         const updates = [];
-        
+
         // FF1
         const clk1 = this.getInputState(1);
         const pr1 = this.getInputState(2);
@@ -581,9 +578,9 @@ export class LS76 extends TTLChip {
         const k1 = this.getInputState(6);
         const lastClk1 = this.internalState.ff1.lastClk;
         this.internalState.ff1.lastClk = clk1;
-        
+
         let q1 = this.internalState.ff1.q;
-        
+
         // Async clear
         if (clr1 === STATE_LOW && pr1 === STATE_HIGH) {
             q1 = STATE_LOW;
@@ -603,24 +600,24 @@ export class LS76 extends TTLChip {
             }
             // j1=LOW, k1=LOW: no change
         }
-        
+
         this.internalState.ff1.q = q1;
         const q1bar = (q1 === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
-        
+
         updates.push({ pin: 15, state: q1 });
         updates.push({ pin: 16, state: q1bar });
-        
+
         // FF2
         const clk2 = this.getInputState(12);
-        const pr2 = this.getInputState(11);
+        const pr2 = this.getInputState(16);
         const clr2 = this.getInputState(10);
-        const j2 = this.getInputState(14);
-        const k2 = this.getInputState(13);
+        const j2 = this.getInputState(11);
+        const k2 = this.getInputState(14);
         const lastClk2 = this.internalState.ff2.lastClk;
         this.internalState.ff2.lastClk = clk2;
-        
+
         let q2 = this.internalState.ff2.q;
-        
+
         if (clr2 === STATE_LOW && pr2 === STATE_HIGH) {
             q2 = STATE_LOW;
         } else if (pr2 === STATE_LOW && clr2 === STATE_HIGH) {
@@ -636,13 +633,13 @@ export class LS76 extends TTLChip {
                 q2 = (q2 === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
             }
         }
-        
+
         this.internalState.ff2.q = q2;
         const q2bar = (q2 === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
-        
+
         updates.push({ pin: 9, state: q2 });
         updates.push({ pin: 8, state: q2bar });
-        
+
         return updates;
     }
 
@@ -665,10 +662,10 @@ export class LS76 extends TTLChip {
 export class LS90 extends TTLChip {
     constructor(id, name = '74LS90') {
         super(id, name, 14);
-        
+
         this.vccPin = 5;
         this.gndPin = 10;
-        
+
         this.setPinType(1, PIN_TYPE.CLOCK);  // CKB
         this.setPinType(2, PIN_TYPE.INPUT);   // R0(1) - Reset (active HIGH)
         this.setPinType(3, PIN_TYPE.INPUT);   // R0(2) - Reset (active HIGH)
@@ -681,7 +678,7 @@ export class LS90 extends TTLChip {
         this.setPinType(11, PIN_TYPE.OUTPUT); // QD
         this.setPinType(5, PIN_TYPE.POWER);   // VCC
         this.setPinType(10, PIN_TYPE.POWER);   // GND
-        
+
         // Internal: Two sections - mod-2 (QA) and mod-5 (QB, QC, QD)
         this.internalState = {
             sectionA: { count: 0, lastClk: STATE_FLOAT }, // mod-2
@@ -703,7 +700,7 @@ export class LS90 extends TTLChip {
         const r02 = this.getInputState(3);
         const r91 = this.getInputState(6);
         const r92 = this.getInputState(7);
-        
+
         // Reset (both R0 pins HIGH)
         if (r01 === STATE_HIGH && r02 === STATE_HIGH) {
             this.internalState.sectionA.count = 0;
@@ -720,29 +717,29 @@ export class LS90 extends TTLChip {
             const clkA = this.getInputState(14);
             const lastClkA = this.internalState.sectionA.lastClk;
             this.internalState.sectionA.lastClk = clkA;
-            
+
             if (lastClkA === STATE_HIGH && clkA === STATE_LOW) {
                 this.internalState.sectionA.count = (this.internalState.sectionA.count + 1) % 2;
             }
-            
+
             // Section B: mod-5 counter (CKB -> QB, QC, QD)
             const clkB = this.getInputState(1);
             const lastClkB = this.internalState.sectionB.lastClk;
             this.internalState.sectionB.lastClk = clkB;
-            
+
             if (lastClkB === STATE_HIGH && clkB === STATE_LOW) {
                 this.internalState.sectionB.count = (this.internalState.sectionB.count + 1) % 5;
             }
         }
-        
+
         // Output QA (bit 0 of section A)
         const qa = (this.internalState.sectionA.count & 1) ? STATE_HIGH : STATE_LOW;
-        
+
         // Output QB, QC, QD (bits 0, 1, 2 of section B)
         const qb = (this.internalState.sectionB.count & 1) ? STATE_HIGH : STATE_LOW;
         const qc = (this.internalState.sectionB.count & 2) ? STATE_HIGH : STATE_LOW;
         const qd = (this.internalState.sectionB.count & 4) ? STATE_HIGH : STATE_LOW;
-        
+
         return [
             { pin: 12, state: qa },
             { pin: 9, state: qb },
@@ -767,10 +764,10 @@ export class LS90 extends TTLChip {
 export class LS93 extends TTLChip {
     constructor(id, name = '74LS93') {
         super(id, name, 14);
-        
+
         this.vccPin = 5;
         this.gndPin = 10;
-        
+
         this.setPinType(1, PIN_TYPE.CLOCK);  // CKB
         this.setPinType(2, PIN_TYPE.INPUT);   // R0(1)
         this.setPinType(3, PIN_TYPE.INPUT);   // R0(2)
@@ -781,7 +778,7 @@ export class LS93 extends TTLChip {
         this.setPinType(11, PIN_TYPE.OUTPUT); // QD
         this.setPinType(5, PIN_TYPE.POWER);   // VCC
         this.setPinType(10, PIN_TYPE.POWER);   // GND
-        
+
         this.internalState = {
             sectionA: { count: 0, lastClk: STATE_FLOAT }, // mod-2
             sectionB: { count: 0, lastClk: STATE_FLOAT }    // mod-8
@@ -800,7 +797,7 @@ export class LS93 extends TTLChip {
 
         const r01 = this.getInputState(2);
         const r02 = this.getInputState(3);
-        
+
         // Reset
         if (r01 === STATE_HIGH && r02 === STATE_HIGH) {
             this.internalState.sectionA.count = 0;
@@ -810,26 +807,26 @@ export class LS93 extends TTLChip {
             const clkA = this.getInputState(14);
             const lastClkA = this.internalState.sectionA.lastClk;
             this.internalState.sectionA.lastClk = clkA;
-            
+
             if (lastClkA === STATE_HIGH && clkA === STATE_LOW) {
                 this.internalState.sectionA.count = (this.internalState.sectionA.count + 1) % 2;
             }
-            
+
             // Section B: mod-8
             const clkB = this.getInputState(1);
             const lastClkB = this.internalState.sectionB.lastClk;
             this.internalState.sectionB.lastClk = clkB;
-            
+
             if (lastClkB === STATE_HIGH && clkB === STATE_LOW) {
                 this.internalState.sectionB.count = (this.internalState.sectionB.count + 1) % 8;
             }
         }
-        
+
         const qa = (this.internalState.sectionA.count & 1) ? STATE_HIGH : STATE_LOW;
         const qb = (this.internalState.sectionB.count & 1) ? STATE_HIGH : STATE_LOW;
         const qc = (this.internalState.sectionB.count & 2) ? STATE_HIGH : STATE_LOW;
         const qd = (this.internalState.sectionB.count & 4) ? STATE_HIGH : STATE_LOW;
-        
+
         return [
             { pin: 12, state: qa },
             { pin: 9, state: qb },
@@ -858,10 +855,10 @@ export class LS93 extends TTLChip {
 export class LS138 extends TTLChip {
     constructor(id, name = '74LS138') {
         super(id, name, 16);
-        
+
         this.vccPin = 16;
         this.gndPin = 8;
-        
+
         this.setPinType(1, PIN_TYPE.INPUT);  // A
         this.setPinType(2, PIN_TYPE.INPUT);  // B
         this.setPinType(3, PIN_TYPE.INPUT);  // C
@@ -900,10 +897,10 @@ export class LS138 extends TTLChip {
         const g2a = this.getInputState(4);
         const g2b = this.getInputState(5);
         const g1 = this.getInputState(6);
-        
+
         // Enable: G1=HIGH, G2A=LOW, G2B=LOW
         const enabled = (g1 === STATE_HIGH && g2a === STATE_LOW && g2b === STATE_LOW);
-        
+
         if (!enabled) {
             // All outputs HIGH (disabled)
             return [
@@ -917,16 +914,16 @@ export class LS138 extends TTLChip {
                 { pin: 7, state: STATE_HIGH }
             ];
         }
-        
+
         // Decode: select = C*4 + B*2 + A
-        const select = (c === STATE_HIGH ? 4 : 0) + 
-                      (b === STATE_HIGH ? 2 : 0) + 
-                      (a === STATE_HIGH ? 1 : 0);
-        
+        const select = (c === STATE_HIGH ? 4 : 0) +
+            (b === STATE_HIGH ? 2 : 0) +
+            (a === STATE_HIGH ? 1 : 0);
+
         // Active LOW outputs: selected output is LOW, others HIGH
         const outputs = Array(8).fill(STATE_HIGH);
         outputs[select] = STATE_LOW;
-        
+
         return [
             { pin: 15, state: outputs[0] }, // Y0
             { pin: 14, state: outputs[1] }, // Y1
@@ -947,10 +944,10 @@ export class LS138 extends TTLChip {
 export class LS47 extends TTLChip {
     constructor(id, name = '74LS47') {
         super(id, name, 16);
-        
+
         this.vccPin = 16;
         this.gndPin = 8;
-        
+
         this.setPinType(7, PIN_TYPE.INPUT);  // A (LSB)
         this.setPinType(1, PIN_TYPE.INPUT);  // B
         this.setPinType(2, PIN_TYPE.INPUT);  // C
@@ -967,7 +964,7 @@ export class LS47 extends TTLChip {
         this.setPinType(14, PIN_TYPE.OUTPUT); // g
         this.setPinType(8, PIN_TYPE.POWER);   // GND
         this.setPinType(16, PIN_TYPE.POWER);  // VCC
-        
+
         // 7-segment patterns (active LOW: 0=segment ON, 1=segment OFF)
         this.patterns = [
             [0, 0, 0, 0, 0, 0, 1], // 0: a,b,c,d,e,f on
@@ -1000,7 +997,7 @@ export class LS47 extends TTLChip {
         const lt = this.getInputState(3);  // Lamp Test
         const bi = this.getInputState(4);  // Blanking Input
         const rbi = this.getInputState(5); // Ripple Blanking Input
-        
+
         // Lamp Test: all segments ON
         if (lt === STATE_LOW) {
             return [
@@ -1013,7 +1010,7 @@ export class LS47 extends TTLChip {
                 { pin: 14, state: STATE_LOW }
             ];
         }
-        
+
         // Blanking Input: all segments OFF
         if (bi === STATE_LOW) {
             return [
@@ -1026,18 +1023,18 @@ export class LS47 extends TTLChip {
                 { pin: 14, state: STATE_HIGH }
             ];
         }
-        
+
         // Read BCD
         const a = this.getInputState(7);
         const b = this.getInputState(1);
         const c = this.getInputState(2);
         const d = this.getInputState(6);
-        
-        const bcd = (d === STATE_HIGH ? 8 : 0) + 
-                   (c === STATE_HIGH ? 4 : 0) + 
-                   (b === STATE_HIGH ? 2 : 0) + 
-                   (a === STATE_HIGH ? 1 : 0);
-        
+
+        const bcd = (d === STATE_HIGH ? 8 : 0) +
+            (c === STATE_HIGH ? 4 : 0) +
+            (b === STATE_HIGH ? 2 : 0) +
+            (a === STATE_HIGH ? 1 : 0);
+
         // Ripple blanking: if input is 0 and RBI is LOW, blank display
         if (bcd === 0 && rbi === STATE_LOW) {
             return [
@@ -1050,11 +1047,11 @@ export class LS47 extends TTLChip {
                 { pin: 14, state: STATE_HIGH }
             ];
         }
-        
+
         // Get pattern
         const patternIndex = (bcd <= 9) ? bcd : 10;
         const pattern = this.patterns[patternIndex];
-        
+
         // Convert to states (0=LOW=ON, 1=HIGH=OFF)
         return [
             { pin: 13, state: pattern[0] === 0 ? STATE_LOW : STATE_HIGH }, // a
@@ -1079,10 +1076,10 @@ export class LS47 extends TTLChip {
 export class LS151 extends TTLChip {
     constructor(id, name = '74LS151') {
         super(id, name, 16);
-        
+
         this.vccPin = 16;
         this.gndPin = 8;
-        
+
         this.setPinType(4, PIN_TYPE.INPUT);  // D0
         this.setPinType(3, PIN_TYPE.INPUT);  // D1
         this.setPinType(2, PIN_TYPE.INPUT);  // D2
@@ -1110,7 +1107,7 @@ export class LS151 extends TTLChip {
         }
 
         const strobe = this.getInputState(7);
-        
+
         // If strobe is HIGH, outputs are LOW
         if (strobe === STATE_HIGH) {
             return [
@@ -1118,16 +1115,16 @@ export class LS151 extends TTLChip {
                 { pin: 6, state: STATE_HIGH }
             ];
         }
-        
+
         // Select input
         const s0 = this.getInputState(15);
         const s1 = this.getInputState(14);
         const s2 = this.getInputState(13);
-        
-        const select = (s2 === STATE_HIGH ? 4 : 0) + 
-                      (s1 === STATE_HIGH ? 2 : 0) + 
-                      (s0 === STATE_HIGH ? 1 : 0);
-        
+
+        const select = (s2 === STATE_HIGH ? 4 : 0) +
+            (s1 === STATE_HIGH ? 2 : 0) +
+            (s0 === STATE_HIGH ? 1 : 0);
+
         const dataInputs = [
             this.getInputState(4),  // D0
             this.getInputState(3),  // D1
@@ -1138,11 +1135,11 @@ export class LS151 extends TTLChip {
             this.getInputState(10), // D6
             this.getInputState(9)   // D7
         ];
-        
+
         const selected = dataInputs[select];
         const y = selected;
         const w = (selected === STATE_HIGH) ? STATE_LOW : STATE_HIGH;
-        
+
         return [
             { pin: 5, state: y },
             { pin: 6, state: w }
@@ -1157,10 +1154,10 @@ export class LS151 extends TTLChip {
 export class LS153 extends TTLChip {
     constructor(id, name = '74LS153') {
         super(id, name, 16);
-        
+
         this.vccPin = 16;
         this.gndPin = 8;
-        
+
         // MUX1
         this.setPinType(1, PIN_TYPE.INPUT);  // 1G (active LOW)
         this.setPinType(6, PIN_TYPE.INPUT); // 1C0
@@ -1168,7 +1165,7 @@ export class LS153 extends TTLChip {
         this.setPinType(4, PIN_TYPE.INPUT); // 1C2
         this.setPinType(3, PIN_TYPE.INPUT); // 1C3
         this.setPinType(7, PIN_TYPE.OUTPUT); // 1Y
-        
+
         // MUX2
         this.setPinType(15, PIN_TYPE.INPUT); // 2G (active LOW)
         this.setPinType(10, PIN_TYPE.INPUT); // 2C0
@@ -1176,11 +1173,11 @@ export class LS153 extends TTLChip {
         this.setPinType(12, PIN_TYPE.INPUT); // 2C2
         this.setPinType(13, PIN_TYPE.INPUT); // 2C3
         this.setPinType(9, PIN_TYPE.OUTPUT); // 2Y
-        
+
         // Common select
         this.setPinType(2, PIN_TYPE.INPUT);  // S0
         this.setPinType(14, PIN_TYPE.INPUT); // S1
-        
+
         this.setPinType(8, PIN_TYPE.POWER);   // GND
         this.setPinType(16, PIN_TYPE.POWER);  // VCC
     }
@@ -1196,7 +1193,7 @@ export class LS153 extends TTLChip {
         const s0 = this.getInputState(2);
         const s1 = this.getInputState(14);
         const select = (s1 === STATE_HIGH ? 2 : 0) + (s0 === STATE_HIGH ? 1 : 0);
-        
+
         // MUX1
         const g1 = this.getInputState(1);
         let y1 = STATE_LOW;
@@ -1209,7 +1206,7 @@ export class LS153 extends TTLChip {
             ];
             y1 = c1[select];
         }
-        
+
         // MUX2
         const g2 = this.getInputState(15);
         let y2 = STATE_LOW;
@@ -1222,7 +1219,7 @@ export class LS153 extends TTLChip {
             ];
             y2 = c2[select];
         }
-        
+
         return [
             { pin: 7, state: y1 },
             { pin: 9, state: y2 }
@@ -1237,33 +1234,33 @@ export class LS153 extends TTLChip {
 export class LS157 extends TTLChip {
     constructor(id, name = '74LS157') {
         super(id, name, 16);
-        
+
         this.vccPin = 16;
         this.gndPin = 8;
-        
+
         this.setPinType(15, PIN_TYPE.INPUT); // STROBE (active LOW)
         this.setPinType(1, PIN_TYPE.INPUT);  // SELECT
-        
+
         // MUX1
         this.setPinType(2, PIN_TYPE.INPUT);  // 1A
         this.setPinType(3, PIN_TYPE.INPUT);  // 1B
         this.setPinType(4, PIN_TYPE.OUTPUT); // 1Y
-        
+
         // MUX2
         this.setPinType(5, PIN_TYPE.INPUT);  // 2A
         this.setPinType(6, PIN_TYPE.INPUT);  // 2B
         this.setPinType(7, PIN_TYPE.OUTPUT); // 2Y
-        
+
         // MUX3
         this.setPinType(11, PIN_TYPE.INPUT); // 3A
         this.setPinType(10, PIN_TYPE.INPUT); // 3B
         this.setPinType(9, PIN_TYPE.OUTPUT); // 3Y
-        
+
         // MUX4
         this.setPinType(14, PIN_TYPE.INPUT); // 4A
         this.setPinType(13, PIN_TYPE.INPUT); // 4B
         this.setPinType(12, PIN_TYPE.OUTPUT); // 4Y
-        
+
         this.setPinType(8, PIN_TYPE.POWER);   // GND
         this.setPinType(16, PIN_TYPE.POWER);  // VCC
     }
@@ -1280,7 +1277,7 @@ export class LS157 extends TTLChip {
 
         const strobe = this.getInputState(15);
         const select = this.getInputState(1);
-        
+
         if (strobe === STATE_HIGH) {
             return [
                 { pin: 4, state: STATE_LOW },
@@ -1289,9 +1286,9 @@ export class LS157 extends TTLChip {
                 { pin: 12, state: STATE_LOW }
             ];
         }
-        
+
         const selectB = (select === STATE_HIGH);
-        
+
         return [
             { pin: 4, state: selectB ? this.getInputState(3) : this.getInputState(2) },
             { pin: 7, state: selectB ? this.getInputState(6) : this.getInputState(5) },
@@ -1312,10 +1309,10 @@ export class LS157 extends TTLChip {
 export class LS283 extends TTLChip {
     constructor(id, name = '74LS283') {
         super(id, name, 16);
-        
+
         this.vccPin = 16;
         this.gndPin = 8;
-        
+
         this.setPinType(1, PIN_TYPE.INPUT);  // A1
         this.setPinType(2, PIN_TYPE.INPUT);  // B1
         this.setPinType(3, PIN_TYPE.INPUT);  // A2
@@ -1352,16 +1349,16 @@ export class LS283 extends TTLChip {
             this.getInputState(5) === STATE_HIGH ? 1 : 0, // A3
             this.getInputState(7) === STATE_HIGH ? 1 : 0  // A4
         ];
-        
+
         const b = [
             this.getInputState(2) === STATE_HIGH ? 1 : 0, // B1
             this.getInputState(4) === STATE_HIGH ? 1 : 0, // B2
             this.getInputState(6) === STATE_HIGH ? 1 : 0, // B3
             this.getInputState(11) === STATE_HIGH ? 1 : 0 // B4
         ];
-        
+
         let carry = this.getInputState(15) === STATE_HIGH ? 1 : 0; // C0
-        
+
         // Perform 4-bit addition
         const sums = [];
         for (let i = 0; i < 4; i++) {
@@ -1369,7 +1366,7 @@ export class LS283 extends TTLChip {
             sums.push(sum & 1); // LSB
             carry = sum >> 1;   // Carry to next bit
         }
-        
+
         return [
             { pin: 13, state: sums[0] ? STATE_HIGH : STATE_LOW }, // SUM1
             { pin: 12, state: sums[1] ? STATE_HIGH : STATE_LOW }, // SUM2

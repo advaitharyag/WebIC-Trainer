@@ -53,7 +53,6 @@ class SystemController {
         this.setupLEDs();
         this.setupClock();
         this.setupBCDDecoder();
-        this.setupSevenSegment();
         this.setupMonoPulse();
         this.setupICModal();
         this.setupRemoveIC();
@@ -124,11 +123,14 @@ class SystemController {
         const redoBtn = document.getElementById('redo-btn');
         const clearBtn = document.getElementById('clear-log');
 
+
         undoBtn.addEventListener('click', () => this.undo());
         redoBtn.addEventListener('click', () => this.redo());
         if (clearBtn) clearBtn.addEventListener('click', () => {
             document.getElementById('activity-log').innerHTML = '';
         });
+
+
 
         this.updateHistoryUI();
     }
@@ -257,10 +259,11 @@ class SystemController {
             socket.className = 'socket socket-green';
             socket.dataset.pinId = `switch-${i}`;
 
-            // Label
+            // Label with binary weight (LSB-first: S0=1, S1=2, S2=4, ..., S7=128)
+            const binaryWeights = [1, 2, 4, 8, 16, 32, 64, 128];
             const label = document.createElement('span');
             label.className = 'switch-number';
-            label.innerText = `S${i}`;
+            label.innerHTML = `S${i}<br><small>${binaryWeights[i]}</small>`;
 
             group.append(box, socket, label);
             container.appendChild(group);
@@ -750,9 +753,56 @@ class SystemController {
         const ic = this.icInstances.get(socketId);
         if (ic) {
             const name = ic.name;
-            // Remove IC's pins from wiring? 
-            // Ideally we should disconnect them. 
-            // For now, logic nodes persist but wrappers go away. 
+
+            console.log('[DEBUG] Removing IC:', name, 'from socket:', socketId);
+
+            // Remove all wires connected to this IC's pins
+            const icPinPrefix = `${socketId}-pin-`;
+            const wiresToRemove = [];
+
+            console.log('[DEBUG] Looking for wires with prefix:', icPinPrefix);
+            console.log('[DEBUG] Total wires in circuit:', this.wiring.wires.length);
+
+            // Find all wires connected to this IC
+            this.wiring.wires.forEach(wire => {
+                console.log('[DEBUG] Checking wire:', wire.id, 'source:', wire.source, 'target:', wire.target);
+                if (wire.source.startsWith(icPinPrefix) || wire.target.startsWith(icPinPrefix)) {
+                    console.log('[DEBUG] Found wire to remove:', wire.id);
+                    wiresToRemove.push(wire.id);
+                }
+            });
+
+            console.log('[DEBUG] Total wires to remove:', wiresToRemove.length);
+
+            // Remove the wires
+            wiresToRemove.forEach(wireId => {
+                console.log('[DEBUG] Removing wire:', wireId);
+                this.wiring.removeWire(wireId);
+                this.removeWireUI(wireId);
+            });
+
+            // ADDITIONAL CLEANUP: Remove any orphaned wire visual elements
+            // This catches any SVG paths that might have been missed
+            const svg = document.getElementById('wire-layer');
+            console.log('[DEBUG] Checking for orphaned wires in SVG:', !!svg);
+            if (svg) {
+                const allPaths = svg.querySelectorAll('.wire-path');
+                console.log('[DEBUG] Total wire paths in SVG:', allPaths.length);
+                allPaths.forEach(path => {
+                    const wireId = path.id;
+                    // Check if this wire still exists in the wiring manager
+                    const wireExists = this.wiring.wires.some(w => w.id === wireId);
+                    if (!wireExists) {
+                        console.log('[DEBUG] Removing orphaned wire visual:', wireId);
+                        path.remove();
+                    }
+                });
+            }
+
+            if (wiresToRemove.length > 0) {
+                this.log('Wire', '✂️', `Removed ${wiresToRemove.length} wire(s) connected to ${name}`);
+            }
+
             this.icInstances.delete(socketId);
             socketElement.innerHTML = '';
 
@@ -930,10 +980,8 @@ class SystemController {
                 const wireId = path.id;
                 const wire = this.wiring.wires.find(w => w.id === wireId);
                 if (wire) {
-                    this.wiring.removeWire(wireId);
-                    this.removeWireUI(wireId);
+                    this.removeWire(wireId);
                     this.pushAction({ type: 'removeWire', data: wire });
-                    this.log('Wire', '✂️', 'Wire removed');
                 }
                 return;
             }
@@ -960,10 +1008,8 @@ class SystemController {
                     const wireId = path.id;
                     const wire = this.wiring.wires.find(w => w.id === wireId);
                     if (wire) {
-                        this.wiring.removeWire(wireId);
-                        this.removeWireUI(wireId);
+                        this.removeWire(wireId);
                         this.pushAction({ type: 'removeWire', data: wire });
-                        this.log('Wire', '✂️', 'Wire removed');
                     }
                 }
             }
@@ -1136,8 +1182,27 @@ class SystemController {
 
     removeWireUI(wireId) {
         const el = document.getElementById(wireId);
-        if (el) el.remove();
+        console.log('[DEBUG] removeWireUI called for:', wireId, 'element found:', !!el);
+        if (el) {
+            el.remove();
+            console.log('[DEBUG] Wire UI element removed from DOM');
+        } else {
+            console.log('[DEBUG] WARNING: Wire UI element not found in DOM!');
+        }
     }
+
+    /**
+     * Remove a wire by ID
+     */
+    removeWire(wireId) {
+        console.log('[DEBUG] removeWire called with wireId:', wireId);
+        console.log('[DEBUG] Wiring manager wires:', this.wiring.wires);
+        this.wiring.removeWire(wireId);
+        this.removeWireUI(wireId);
+        this.log('Wire', '✂️', 'Wire removed');
+        console.log('[DEBUG] Wire removed successfully');
+    }
+
 }
 
 // Start Controller when DOM Ready
@@ -1240,4 +1305,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+
+    // Setup Copy Log button
+    const copyLogBtn = document.getElementById('copy-log');
+    if (copyLogBtn) {
+        copyLogBtn.addEventListener('click', () => {
+            const logContainer = document.getElementById('activity-log');
+            if (!logContainer) return;
+
+            // Extract log text
+            const logEntries = logContainer.querySelectorAll('.log-entry');
+            const logText = Array.from(logEntries).map(entry => {
+                const time = entry.querySelector('.log-time')?.textContent || '';
+                const icon = entry.querySelector('.log-icon')?.textContent || '';
+                const text = entry.querySelector('.log-text')?.textContent || '';
+                return `${time} ${icon} ${text}`.trim();
+            }).join('\n');
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(logText).then(() => {
+                // Visual feedback
+                const originalText = copyLogBtn.textContent;
+                copyLogBtn.textContent = 'Copied!';
+                copyLogBtn.style.background = 'var(--color-success)';
+                copyLogBtn.style.color = 'white';
+
+                setTimeout(() => {
+                    copyLogBtn.textContent = originalText;
+                    copyLogBtn.style.background = '';
+                    copyLogBtn.style.color = '';
+                }, 2000);
+
+                window.controller.log('System', '📋', 'Activity log copied to clipboard');
+            }).catch(err => {
+                console.error('Failed to copy log:', err);
+                window.controller.log('Error', '⚠️', 'Failed to copy log to clipboard');
+            });
+        });
+    }
 });

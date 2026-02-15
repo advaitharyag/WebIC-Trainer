@@ -75,6 +75,8 @@
             margin-bottom: 20px;
             animation: fadeInDown 0.6s ease-out;
             position: relative;
+            width: 100%;
+            max-width: 1400px;
         }
 
         .theme-toggle {
@@ -893,7 +895,7 @@
 
         /* Decoder Section */
         .decoder-section {
-            grid-column: span 3;
+            grid-column: span 6;
             min-height: 140px;
         }
 
@@ -1472,7 +1474,10 @@
                 </svg>
                 <span>Activity Log</span>
             </div>
-            <button class="terminal-clear" id="clear-log">Clear</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="terminal-clear" id="copy-log" title="Copy log to clipboard">Copy</button>
+                <button class="terminal-clear" id="clear-log">Clear</button>
+            </div>
         </div>
         <div class="terminal-body" id="activity-log">
             <div class="log-entry system">
@@ -1482,6 +1487,8 @@
             </div>
         </div>
     </div>
+
+
 
     <div class="board-container">
         <svg id="wire-layer"></svg>
@@ -1540,41 +1547,7 @@
                 </div>
             </div>
 
-            <!-- 7 Segment Display -->
-            <div class="panel decoder-section">
-                <span class="panel-label">7-Segment Display</span>
-                <div class="decoder-content">
-                    <div class="decoder-pins">
-                        <div class="pin-row">
-                            <div class="socket socket-black" data-pin-id="seg-a"></div><span class="pin-label">a</span>
-                        </div>
-                        <div class="pin-row">
-                            <div class="socket socket-black" data-pin-id="seg-b"></div><span class="pin-label">b</span>
-                        </div>
-                        <div class="pin-row">
-                            <div class="socket socket-black" data-pin-id="seg-c"></div><span class="pin-label">c</span>
-                        </div>
-                        <div class="pin-row">
-                            <div class="socket socket-black" data-pin-id="seg-d"></div><span class="pin-label">d</span>
-                        </div>
-                    </div>
-                    <div class="decoder-display" id="seven-seg-display"><span>8.</span></div>
-                    <div class="decoder-pins">
-                        <div class="pin-row"><span class="pin-label">e</span>
-                            <div class="socket socket-black" data-pin-id="seg-e"></div>
-                        </div>
-                        <div class="pin-row"><span class="pin-label">f</span>
-                            <div class="socket socket-black" data-pin-id="seg-f"></div>
-                        </div>
-                        <div class="pin-row"><span class="pin-label">g</span>
-                            <div class="socket socket-black" data-pin-id="seg-g"></div>
-                        </div>
-                        <div class="pin-row"><span class="pin-label">dp</span>
-                            <div class="socket socket-black" data-pin-id="seg-dp"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
 
             <!-- TTL Clock -->
             <div class="panel clock-section">

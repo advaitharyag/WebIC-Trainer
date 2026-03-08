@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - Core Simulation Engine
+ * Web IC Trainer - Core Simulation Engine
  * Handles electrical nodes, event queue, and propagation delays.
  */
 
@@ -204,3 +204,4 @@ export class CircuitEngine {
         return nodeAId;
     }
 }
+

@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - IC Registration
+ * Web IC Trainer - IC Registration
  * Registers all ICs with the registry system
  */
 
@@ -143,3 +143,4 @@ icRegistry.register({
 });
 
 export { icRegistry };
+

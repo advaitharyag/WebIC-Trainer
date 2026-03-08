@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - IC Implementations
+ * Web IC Trainer - IC Implementations
  * All TTL ICs extending TTLChip base class
  */
 
@@ -1376,3 +1376,4 @@ export class LS283 extends TTLChip {
         ];
     }
 }
+

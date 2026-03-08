@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital IC Trainer</title>
+    <title>Web IC Trainer</title>
     <script>
         (function () {
             try {
@@ -21,7 +21,7 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --color-bg: #f5f5f7;
@@ -1379,12 +1379,360 @@
                 grid-column: span 6;
             }
         }
+    
+        /* 2026 Visual Revamp: Neon Lab UI (layout unchanged) */
+        :root {
+            --revamp-bg-1: #f3f8ff;
+            --revamp-bg-2: #eefcf7;
+            --revamp-ink: #0f172a;
+            --revamp-glass: rgba(255, 255, 255, 0.78);
+            --revamp-glass-strong: rgba(255, 255, 255, 0.9);
+            --revamp-border: rgba(14, 53, 98, 0.18);
+            --revamp-shadow: 0 16px 42px rgba(6, 26, 53, 0.14);
+            --revamp-accent-a: #0ea5e9;
+            --revamp-accent-b: #14b8a6;
+        }
+
+        [data-theme="dark"] {
+            --revamp-bg-1: #030712;
+            --revamp-bg-2: #0b1220;
+            --revamp-ink: #e5edf9;
+            --revamp-glass: rgba(12, 19, 34, 0.78);
+            --revamp-glass-strong: rgba(16, 26, 46, 0.9);
+            --revamp-border: rgba(110, 168, 254, 0.22);
+            --revamp-shadow: 0 18px 50px rgba(0, 0, 0, 0.52);
+            --revamp-accent-a: #38bdf8;
+            --revamp-accent-b: #2dd4bf;
+        }
+
+        body {
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            background:
+                radial-gradient(circle at 12% 8%, color-mix(in oklab, var(--revamp-accent-a) 16%, transparent) 0%, transparent 44%),
+                radial-gradient(circle at 88% 16%, color-mix(in oklab, var(--revamp-accent-b) 14%, transparent) 0%, transparent 42%),
+                linear-gradient(160deg, var(--revamp-bg-1) 0%, var(--revamp-bg-2) 100%);
+            color: var(--revamp-ink);
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(127, 152, 184, 0.09) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(127, 152, 184, 0.09) 1px, transparent 1px);
+            background-size: 38px 38px;
+            mask-image: radial-gradient(circle at center, black 52%, transparent 100%);
+            opacity: 0.5;
+            z-index: 0;
+        }
+
+        .header,
+        .control-panel,
+        .terminal-container,
+        .board-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            letter-spacing: -0.03em;
+            background: linear-gradient(120deg, var(--revamp-accent-a), var(--revamp-accent-b));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p,
+        .group-label,
+        .panel-label,
+        .power-label,
+        .pin-label,
+        .led-number {
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.08em;
+        }
+
+        .control-group,
+        .panel,
+        .power-panel,
+        .terminal-container,
+        .board-container,
+        .modal {
+            background: var(--revamp-glass);
+            border: 1px solid var(--revamp-border);
+            backdrop-filter: blur(14px) saturate(130%);
+            box-shadow: var(--revamp-shadow);
+        }
+
+        .board-container {
+            background:
+                linear-gradient(170deg, var(--revamp-glass-strong) 0%, var(--revamp-glass) 100%);
+        }
+
+        .panel,
+        .control-group,
+        .power-panel,
+        .terminal-container {
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+
+        .panel:hover,
+        .control-group:hover,
+        .power-panel:hover,
+        .terminal-container:hover {
+            transform: translateY(-2px);
+            border-color: color-mix(in oklab, var(--revamp-accent-a) 34%, var(--revamp-border));
+            box-shadow: 0 18px 46px color-mix(in oklab, var(--revamp-accent-a) 18%, transparent);
+        }
+
+        .control-btn,
+        .modal-btn,
+        .terminal-clear {
+            border: 1px solid transparent;
+            background: color-mix(in oklab, var(--revamp-accent-a) 10%, transparent);
+            color: var(--revamp-ink);
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .control-btn:hover,
+        .modal-btn:hover,
+        .terminal-clear:hover {
+            border-color: color-mix(in oklab, var(--revamp-accent-a) 45%, transparent);
+            background: color-mix(in oklab, var(--revamp-accent-a) 22%, transparent);
+            box-shadow: 0 0 0 2px color-mix(in oklab, var(--revamp-accent-a) 20%, transparent);
+        }
+
+        .control-btn.active,
+        .modal-btn-confirm,
+        .power-button.active {
+            background: linear-gradient(120deg, var(--revamp-accent-a), var(--revamp-accent-b));
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 10px 24px color-mix(in oklab, var(--revamp-accent-a) 44%, transparent);
+        }
+
+        .power-button,
+        .pulse-button {
+            border-color: color-mix(in oklab, var(--revamp-accent-a) 35%, var(--color-border));
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+
+        .socket {
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .socket:hover,
+        .socket.connected {
+            box-shadow: 0 0 0 2px color-mix(in oklab, var(--revamp-accent-a) 45%, transparent), 0 0 18px color-mix(in oklab, var(--revamp-accent-a) 30%, transparent);
+        }
+
+        .terminal-body {
+            font-family: 'JetBrains Mono', monospace;
+            background:
+                linear-gradient(180deg, color-mix(in oklab, var(--revamp-bg-2) 88%, black), color-mix(in oklab, var(--revamp-bg-1) 80%, black));
+            border: 1px solid var(--revamp-border);
+        }
+
+        .log-entry {
+            border-left: 2px solid color-mix(in oklab, var(--revamp-accent-a) 44%, transparent);
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .header,
+            .control-panel,
+            .terminal-container,
+            .board-container {
+                animation-duration: 0.55s;
+            }
+
+            .header h1 {
+                animation: shimmerTitle 8s linear infinite;
+                background-size: 200% 200%;
+            }
+
+            @keyframes shimmerTitle {
+                0% {
+                    background-position: 0% 50%;
+                }
+
+                100% {
+                    background-position: 200% 50%;
+                }
+            }
+        }
+    
+        /* 2026 UI Polish Pack */
+        .control-panel {
+            width: 100%;
+            max-width: 1400px;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid color-mix(in oklab, var(--revamp-accent-a) 28%, transparent);
+            background: color-mix(in oklab, var(--revamp-glass) 86%, transparent);
+            box-shadow: 0 14px 34px color-mix(in oklab, var(--revamp-accent-a) 12%, transparent);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 14px;
+            z-index: 12;
+        }
+
+        .control-group {
+            border-radius: 14px;
+            padding: 10px 12px;
+            gap: 10px;
+            background: color-mix(in oklab, var(--revamp-glass-strong) 80%, transparent);
+        }
+
+        .group-label {
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            opacity: 0.78;
+        }
+
+        .control-btn {
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-weight: 600;
+            line-height: 1;
+            min-height: 38px;
+        }
+
+        .control-btn svg {
+            width: 16px;
+            height: 16px;
+            opacity: 0.9;
+        }
+
+        .theme-toggle {
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            border: 1px solid color-mix(in oklab, var(--revamp-accent-a) 36%, var(--revamp-border));
+            background: color-mix(in oklab, var(--revamp-glass-strong) 88%, transparent);
+            box-shadow: 0 12px 24px color-mix(in oklab, var(--revamp-accent-a) 16%, transparent);
+        }
+
+        .theme-toggle:hover {
+            transform: translateY(-1px) scale(1.02);
+        }
+
+        .board-container {
+            border-radius: 24px;
+            overflow: hidden;
+        }
+
+        .panel {
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, color-mix(in oklab, var(--revamp-accent-a) 55%, transparent), color-mix(in oklab, var(--revamp-accent-b) 55%, transparent));
+            opacity: 0.55;
+            pointer-events: none;
+        }
+
+        .panel-label {
+            top: 10px;
+            left: 14px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: color-mix(in oklab, var(--revamp-accent-a) 16%, transparent);
+            border: 1px solid color-mix(in oklab, var(--revamp-accent-a) 30%, transparent);
+            font-size: 9px;
+            letter-spacing: 0.1em;
+        }
+
+        .terminal-container {
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            border-bottom: 1px solid color-mix(in oklab, var(--revamp-accent-a) 24%, transparent);
+            background: color-mix(in oklab, var(--revamp-glass-strong) 86%, transparent);
+        }
+
+        .terminal-body {
+            border-top: 0;
+        }
+
+        .log-entry {
+            border-radius: 10px;
+            margin: 3px 0;
+            padding: 8px 10px;
+            background: color-mix(in oklab, var(--revamp-accent-a) 7%, transparent);
+        }
+
+        .modal {
+            border-radius: 22px;
+            border: 1px solid color-mix(in oklab, var(--revamp-accent-a) 28%, transparent);
+            box-shadow: 0 30px 70px color-mix(in oklab, black 24%, transparent);
+        }
+
+        .modal-header h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .modal-btn {
+            border-radius: 12px;
+            min-height: 40px;
+        }
+
+        .socket {
+            transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .socket:hover {
+            transform: scale(1.14);
+        }
+
+        .control-btn:focus-visible,
+        .modal-btn:focus-visible,
+        .terminal-clear:focus-visible,
+        .theme-toggle:focus-visible,
+        .socket:focus-visible {
+            outline: 2px solid color-mix(in oklab, var(--revamp-accent-a) 76%, white);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                position: static;
+                top: auto;
+                padding: 8px;
+                border-radius: 16px;
+            }
+
+            .theme-toggle {
+                right: 0;
+            }
+
+            .control-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .panel-label {
+                left: 12px;
+            }
+        }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <h1>Digital IC Trainer</h1>
+        <h1>Web IC Trainer</h1>
         <p>Professional Circuit Design & Testing Platform</p>
         <div class="theme-toggle" id="theme-toggle">
             <svg class="moon-icon" viewBox="0 0 24 24">
@@ -1713,3 +2061,8 @@
 </body>
 
 </html>
+
+
+
+
+

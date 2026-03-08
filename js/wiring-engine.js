@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - Wiring Engine
+ * Web IC Trainer - Wiring Engine
  * Manages physical connections and updates the simulation engine.
  */
 
@@ -221,3 +221,4 @@ export class WiringManager {
         }
     }
 }
+

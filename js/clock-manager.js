@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - Clock Manager
+ * Web IC Trainer - Clock Manager
  * Manages clock signal generation with proper cleanup
  */
 
@@ -88,3 +88,4 @@ export class ClockManager {
         return clock ? clock.state : STATE_FLOAT;
     }
 }
+

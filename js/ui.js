@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - Main UI Controller
+ * Web IC Trainer - Main UI Controller
  * Integrates Simulation, Wiring, and UI interactions.
  */
 
@@ -2176,3 +2176,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+

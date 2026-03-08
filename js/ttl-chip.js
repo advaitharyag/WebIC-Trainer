@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - TTLChip Base Class
+ * Web IC Trainer - TTLChip Base Class
  * Base class for all TTL ICs with power validation, pin management, and evaluation framework
  */
 
@@ -339,3 +339,4 @@ export class TTLChip {
         return config;
     }
 }
+

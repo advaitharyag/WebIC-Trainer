@@ -1,5 +1,5 @@
 /**
- * Digital IC Trainer - IC Registry
+ * Web IC Trainer - IC Registry
  * Modular system for registering and creating IC instances
  */
 
@@ -64,3 +64,4 @@ export class ICRegistry {
 
 // Global registry instance
 export const icRegistry = new ICRegistry();
+

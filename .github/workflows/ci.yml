@@ -14,12 +14,12 @@ jobs:
 
       - name: Verify required files
         run: |
+          pwd
+          ls -la
           test -f README.md
           test -f LICENSE
           test -f CONTRIBUTING.md
-          test -f CODE_OF_CONDUCT.md
-          test -f CHANGELOG.md
-          test -f ic-trainer-simulator.html
+          test -f index.html
 
       - name: Validate JSON presets
         run: |

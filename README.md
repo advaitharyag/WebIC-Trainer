@@ -43,9 +43,18 @@ It lets you place ICs, wire pins, drive inputs, observe outputs, and save/reload
 
 Some browsers have stricter local file restrictions. If needed, run a local server:
 
+Option A (Python):
+
 ```powershell
 cd D:\WebIC-Trainer
 python -m http.server 8080
+```
+
+Option B (Node):
+
+```powershell
+cd D:\WebIC-Trainer
+npx http-server -p 8080
 ```
 
 Then open `http://localhost:8080/ic-trainer-simulator.html`.
@@ -187,3 +196,4 @@ Contributions are welcome.
 
 This project is licensed under the MIT License.
 See [LICENSE](./LICENSE).
+

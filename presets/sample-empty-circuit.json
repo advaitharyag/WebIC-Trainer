@@ -1,0 +1,10 @@
+{
+  "schema": "ic-trainer-circuit-v1",
+  "createdAt": "2026-03-08T00:00:00.000Z",
+  "powerOn": false,
+  "presetId": null,
+  "presetTitle": null,
+  "ics": [],
+  "wires": [],
+  "switches": [0, 0, 0, 0, 0, 0, 0, 0]
+}

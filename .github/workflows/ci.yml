@@ -1,0 +1,29 @@
+name: Repo Checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  quick-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required files
+        run: |
+          test -f README.md
+          test -f LICENSE
+          test -f CONTRIBUTING.md
+          test -f CODE_OF_CONDUCT.md
+          test -f CHANGELOG.md
+          test -f ic-trainer-simulator.html
+
+      - name: Validate JSON presets
+        run: |
+          for f in presets/*.json; do
+            [ -f "$f" ] || continue
+            python -m json.tool "$f" > /dev/null
+          done

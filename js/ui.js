@@ -618,7 +618,7 @@ class SystemController {
 
         if (!modal || !grid || !openBtn || !cancelBtn || !runBtn) return;
 
-        const presets = [
+        const builtInPresets = [
             {
                 id: 'and-gate',
                 title: 'AND Gate Truth Table (74LS08)',
@@ -983,32 +983,55 @@ class SystemController {
             }
         ];
 
+        const savedPresets = this.getSavedPresetRecords().map((record) => ({
+            id: record.id,
+            title: record.title,
+            description: record.description,
+            payload: record.payload,
+            source: 'saved-json'
+        }));
+
+        const presets = [...savedPresets, ...builtInPresets];
         this.presetExperiments = presets;
 
         let selectedPreset = null;
 
-        presets.forEach(preset => {
-            const card = document.createElement('div');
-            card.className = 'ic-card';
-            card.innerHTML = `
-                <div class="ic-card-name">${preset.title}</div>
-                <div class="ic-card-desc">${preset.description}</div>
-            `;
+        const renderPresetCards = () => {
+            grid.innerHTML = '';
+            this.presetExperiments.forEach(preset => {
+                const card = document.createElement('div');
+                card.className = 'ic-card';
+                card.innerHTML = `
+                    <div class="ic-card-name">${preset.title}</div>
+                    <div class="ic-card-desc">${preset.description}</div>
+                `;
 
-            card.onclick = () => {
-                document.querySelectorAll('#preset-grid .ic-card').forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                selectedPreset = preset;
-                runBtn.disabled = false;
-            };
+                card.onclick = () => {
+                    document.querySelectorAll('#preset-grid .ic-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    selectedPreset = preset;
+                    runBtn.disabled = false;
+                };
 
-            grid.appendChild(card);
-        });
+                grid.appendChild(card);
+            });
+        };
+
+        renderPresetCards();
 
         openBtn.addEventListener('click', () => {
+            const refreshedSavedPresets = this.getSavedPresetRecords().map((record) => ({
+                id: record.id,
+                title: record.title,
+                description: record.description,
+                payload: record.payload,
+                source: 'saved-json'
+            }));
+            this.presetExperiments = [...refreshedSavedPresets, ...builtInPresets];
+
             selectedPreset = null;
             runBtn.disabled = true;
-            document.querySelectorAll('#preset-grid .ic-card').forEach(c => c.classList.remove('selected'));
+            renderPresetCards();
             modal.classList.add('show');
         });
 
@@ -1039,9 +1062,26 @@ class SystemController {
             return false;
         }
 
-        this.clearBoardForPreset();
-        preset.load();
-        this.ensurePowerOn();
+        if (preset.payload) {
+            const report = this.validateCircuitJson(preset.payload);
+            if (report.errors.length > 0) {
+                this.log('Preset', '!', `Preset JSON invalid: ${preset.title}`);
+                report.errors.forEach(err => this.log('Error', '!', err));
+                return false;
+            }
+
+            const applied = this.applyCircuitJson(preset.payload);
+            if (!applied.ok) {
+                this.log('Preset', '!', `Preset wiring issues: ${preset.title}`);
+                applied.errors.forEach(err => this.log('Error', '!', err));
+                return false;
+            }
+        } else {
+            this.clearBoardForPreset();
+            preset.load();
+            this.ensurePowerOn();
+        }
+
         this.currentPresetId = preset.id;
         this.log('Preset', 'P', `Loaded preset: ${preset.title}`);
         return true;
@@ -1174,6 +1214,7 @@ class SystemController {
                 const text = JSON.stringify(payload, null, 2);
                 const filename = `ic-trainer-circuit-${Date.now()}.json`;
                 this.downloadTextFile(filename, text, 'application/json');
+                this.persistPresetJson(payload, `Saved ${new Date().toLocaleString()}`);
                 this.log('System', 'S', `Circuit exported: ${filename}`);
             });
         }
@@ -1302,9 +1343,75 @@ class SystemController {
         }
 
         this.log('JSON', 'J', 'Circuit loaded successfully from JSON');
+        this.persistPresetJson(payload, `Imported ${sourceLabel}`);
         return true;
     }
 
+    getSavedPresetRecords() {
+        try {
+            const raw = localStorage.getItem('trainer_saved_presets');
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed.filter(item =>
+                item &&
+                typeof item.id === 'string' &&
+                typeof item.title === 'string' &&
+                item.payload &&
+                typeof item.payload === 'object'
+            );
+        } catch (err) {
+            console.warn('Failed to read saved presets:', err);
+            return [];
+        }
+    }
+
+    persistPresetJson(payload, title = 'Saved Circuit') {
+        if (!payload || typeof payload !== 'object') return;
+
+        const entry = {
+            id: `saved-${Date.now()}`,
+            title: String(title),
+            description: this.buildPresetDescriptionFromPayload(payload),
+            payload
+        };
+
+        const records = this.getSavedPresetRecords();
+        records.unshift(entry);
+        const deduped = [];
+        const seen = new Set();
+
+        records.forEach((item) => {
+            const key = JSON.stringify(item.payload);
+            if (seen.has(key)) return;
+            seen.add(key);
+            deduped.push(item);
+        });
+
+        const maxPresets = 20;
+        const trimmed = deduped.slice(0, maxPresets);
+
+        try {
+            localStorage.setItem('trainer_saved_presets', JSON.stringify(trimmed));
+        } catch (err) {
+            console.warn('Failed to persist preset JSON:', err);
+        }
+
+        if (Array.isArray(this.presetExperiments)) {
+            const payloadKey = JSON.stringify(payload);
+            const exists = this.presetExperiments.some(p => JSON.stringify(p?.payload || null) === payloadKey);
+            if (!exists) {
+                this.presetExperiments.unshift({ ...entry, source: 'saved-json' });
+            }
+        }
+    }
+
+    buildPresetDescriptionFromPayload(payload) {
+        const icCount = Array.isArray(payload.ics) ? payload.ics.length : 0;
+        const wireCount = Array.isArray(payload.wires) ? payload.wires.length : 0;
+        const powered = payload.powerOn ? 'Power ON' : 'Power OFF';
+        return `${icCount} IC(s), ${wireCount} wire(s), ${powered}`;
+    }
     validateCircuitJson(payload) {
         const errors = [];
         const warnings = [];
@@ -2176,4 +2283,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+
+
+
+
+
+
 

@@ -4,6 +4,11 @@ Web IC Trainer is an interactive browser-based digital electronics sandbox focus
 
 It lets you place ICs, wire pins, drive inputs, observe outputs, and save/reload complete circuit states as JSON.
 
+## Live Demo
+
+- https://webictrainer.vercel.app/
+
+
 ## Why This Project
 
 - Learn core digital logic with hands-on interaction.
@@ -196,4 +201,5 @@ Contributions are welcome.
 
 This project is licensed under the MIT License.
 See [LICENSE](./LICENSE).
+
 

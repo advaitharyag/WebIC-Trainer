@@ -43,6 +43,8 @@ class SystemController {
         // History
         this.history = [];
         this.historyIndex = -1;
+        this.currentPresetId = null;
+        this.presetExperiments = [];
 
         this.init();
     }
@@ -55,6 +57,8 @@ class SystemController {
         this.setupBCDDecoder();
         this.setupMonoPulse();
         this.setupICModal();
+        this.setupPresetExperiments();
+        this.setupCircuitJsonIO();
         this.setupRemoveIC();
         this.setupWiringEvents();
         this.setupHistoryControls();
@@ -605,6 +609,462 @@ class SystemController {
         };
     }
 
+    setupPresetExperiments() {
+        const modal = document.getElementById('preset-modal');
+        const grid = document.getElementById('preset-grid');
+        const openBtn = document.getElementById('run-preset-btn');
+        const cancelBtn = document.getElementById('preset-cancel');
+        const runBtn = document.getElementById('preset-run');
+
+        if (!modal || !grid || !openBtn || !cancelBtn || !runBtn) return;
+
+        const presets = [
+            {
+                id: 'and-gate',
+                title: 'AND Gate Truth Table (74LS08)',
+                description: 'S0,S1 -> AND -> L0',
+                load: () => {
+                    this.placeIC('74LS08', document.getElementById('ic-1'), false);
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'led-0-in');
+                }
+            },
+            {
+                id: 'or-gate',
+                title: 'OR Gate Truth Table (74LS32)',
+                description: 'S0,S1 -> OR -> L0',
+                load: () => {
+                    this.placeIC('74LS32', document.getElementById('ic-1'), false);
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'led-0-in');
+                }
+            },
+            {
+                id: 'nand-gate',
+                title: 'NAND Gate Truth Table (74LS00)',
+                description: 'S0,S1 -> NAND -> L0',
+                load: () => {
+                    this.placeIC('74LS00', document.getElementById('ic-1'), false);
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'led-0-in');
+                }
+            },
+            {
+                id: 'nor-gate',
+                title: 'NOR Gate Truth Table (74LS02)',
+                description: 'S0,S1 -> NOR -> L0',
+                load: () => {
+                    this.placeIC('74LS02', document.getElementById('ic-1'), false);
+                    this.connectPins('switch-0', 'ic-1-pin-2');
+                    this.connectPins('switch-1', 'ic-1-pin-3');
+                    this.connectPins('ic-1-pin-1', 'led-0-in');
+                }
+            },
+            {
+                id: 'xor-gate',
+                title: 'XOR Gate Truth Table (74LS86)',
+                description: 'S0,S1 -> XOR -> L0',
+                load: () => {
+                    this.placeIC('74LS86', document.getElementById('ic-1'), false);
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'led-0-in');
+                }
+            },
+            {
+                id: 'not-gate',
+                title: 'NOT Gate Operation (74LS04)',
+                description: 'S0 -> NOT -> L0',
+                load: () => {
+                    this.placeIC('74LS04', document.getElementById('ic-1'), false);
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('ic-1-pin-2', 'led-0-in');
+                }
+            },
+            {
+                id: 'decoder-74ls138',
+                title: '3-to-8 Decoder (74LS138)',
+                description: 'A,B,C on S0..S2 and active-LOW outputs on L0..L7',
+                load: () => {
+                    this.placeIC('74LS138', document.getElementById('ic-1'), false);
+
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('switch-2', 'ic-1-pin-3');
+                    this.connectPins('gnd', 'ic-1-pin-4');
+                    this.connectPins('gnd', 'ic-1-pin-5');
+                    this.connectPins('vcc', 'ic-1-pin-6');
+
+                    this.connectPins('ic-1-pin-15', 'led-0-in'); // Y0
+                    this.connectPins('ic-1-pin-14', 'led-1-in'); // Y1
+                    this.connectPins('ic-1-pin-13', 'led-2-in'); // Y2
+                    this.connectPins('ic-1-pin-12', 'led-3-in'); // Y3
+                    this.connectPins('ic-1-pin-11', 'led-4-in'); // Y4
+                    this.connectPins('ic-1-pin-10', 'led-5-in'); // Y5
+                    this.connectPins('ic-1-pin-9', 'led-6-in');  // Y6
+                    this.connectPins('ic-1-pin-7', 'led-7-in');  // Y7
+                }
+            },
+            {
+                id: 'mux-8to1-74ls151',
+                title: '8-to-1 Multiplexer (74LS151)',
+                description: 'S0..S2 select input data and drive L0 (with W on L1)',
+                load: () => {
+                    this.placeIC('74LS151', document.getElementById('ic-1'), false);
+
+                    this.connectPins('switch-0', 'ic-1-pin-15'); // S0
+                    this.connectPins('switch-1', 'ic-1-pin-14'); // S1
+                    this.connectPins('switch-2', 'ic-1-pin-13'); // S2
+                    this.connectPins('gnd', 'ic-1-pin-7');       // STROBE active LOW
+
+                    this.connectPins('switch-3', 'ic-1-pin-4');  // D0
+                    this.connectPins('switch-4', 'ic-1-pin-3');  // D1
+                    this.connectPins('switch-5', 'ic-1-pin-2');  // D2
+                    this.connectPins('switch-6', 'ic-1-pin-1');  // D3
+                    this.connectPins('switch-7', 'ic-1-pin-12'); // D4
+                    this.connectPins('gnd', 'ic-1-pin-11');      // D5
+                    this.connectPins('gnd', 'ic-1-pin-10');      // D6
+                    this.connectPins('gnd', 'ic-1-pin-9');       // D7
+
+                    this.connectPins('ic-1-pin-5', 'led-0-in'); // Y
+                    this.connectPins('ic-1-pin-6', 'led-1-in'); // W
+                }
+            },
+            {
+                id: 'mux-4to1-74ls153',
+                title: '4-to-1 Multiplexer (74LS153)',
+                description: 'Single channel demo: C0..C3 with common S0,S1',
+                load: () => {
+                    this.placeIC('74LS153', document.getElementById('ic-1'), false);
+
+                    this.connectPins('gnd', 'ic-1-pin-1');      // 1G enable
+                    this.connectPins('vcc', 'ic-1-pin-15');     // Disable channel 2
+                    this.connectPins('switch-4', 'ic-1-pin-2'); // S0
+                    this.connectPins('switch-5', 'ic-1-pin-14'); // S1
+
+                    this.connectPins('switch-0', 'ic-1-pin-6'); // 1C0
+                    this.connectPins('switch-1', 'ic-1-pin-5'); // 1C1
+                    this.connectPins('switch-2', 'ic-1-pin-4'); // 1C2
+                    this.connectPins('switch-3', 'ic-1-pin-3'); // 1C3
+
+                    this.connectPins('ic-1-pin-7', 'led-0-in'); // 1Y
+                }
+            },
+            {
+                id: 'mux-2to1-74ls157',
+                title: '2-to-1 Multiplexer (74LS157)',
+                description: 'Single channel demo: A/B selected by S2',
+                load: () => {
+                    this.placeIC('74LS157', document.getElementById('ic-1'), false);
+
+                    this.connectPins('gnd', 'ic-1-pin-15');     // STROBE enable
+                    this.connectPins('switch-2', 'ic-1-pin-1'); // SELECT
+                    this.connectPins('switch-0', 'ic-1-pin-2'); // 1A
+                    this.connectPins('switch-1', 'ic-1-pin-3'); // 1B
+                    this.connectPins('ic-1-pin-4', 'led-0-in'); // 1Y
+                }
+            },
+            {
+                id: 'counter-74ls93',
+                title: 'Binary Counter (74LS93)',
+                description: '1Hz clock, L0..L3 show QA..QD (0000 to 1111)',
+                load: () => {
+                    this.placeIC('74LS93', document.getElementById('ic-1'), false);
+
+                    this.connectPins('clock-1hz', 'ic-1-pin-14');
+                    this.connectPins('ic-1-pin-12', 'ic-1-pin-1');
+                    this.connectPins('gnd', 'ic-1-pin-2');
+                    this.connectPins('gnd', 'ic-1-pin-3');
+
+                    this.connectPins('ic-1-pin-12', 'led-0-in'); // QA
+                    this.connectPins('ic-1-pin-9', 'led-1-in');  // QB
+                    this.connectPins('ic-1-pin-8', 'led-2-in');  // QC
+                    this.connectPins('ic-1-pin-11', 'led-3-in'); // QD
+                }
+            },
+            {
+                id: 'counter-74ls90',
+                title: 'Decade Counter (74LS90)',
+                description: '1Hz clock, L0..L3 show QA..QD',
+                load: () => {
+                    this.placeIC('74LS90', document.getElementById('ic-1'), false);
+
+                    this.connectPins('clock-1hz', 'ic-1-pin-14');
+                    this.connectPins('ic-1-pin-12', 'ic-1-pin-1');
+                    this.connectPins('gnd', 'ic-1-pin-2');
+                    this.connectPins('gnd', 'ic-1-pin-3');
+                    this.connectPins('gnd', 'ic-1-pin-6');
+                    this.connectPins('gnd', 'ic-1-pin-7');
+
+                    this.connectPins('ic-1-pin-12', 'led-0-in'); // QA
+                    this.connectPins('ic-1-pin-9', 'led-1-in');  // QB
+                    this.connectPins('ic-1-pin-8', 'led-2-in');  // QC
+                    this.connectPins('ic-1-pin-11', 'led-3-in'); // QD
+                }
+            },
+            {
+                id: 'dff-74ls74',
+                title: 'D Flip-Flop Operation (74LS74)',
+                description: 'S0 as D, mono pulse as clock, L0/L1 = Q/Qbar',
+                load: () => {
+                    this.placeIC('74LS74', document.getElementById('ic-1'), false);
+
+                    this.connectPins('vcc', 'ic-1-pin-1');      // CLR1 inactive
+                    this.connectPins('vcc', 'ic-1-pin-4');      // PR1 inactive
+                    this.connectPins('switch-0', 'ic-1-pin-2'); // D1
+                    this.connectPins('pulse-out', 'ic-1-pin-3'); // CLK1
+                    this.connectPins('ic-1-pin-5', 'led-0-in'); // Q1
+                    this.connectPins('ic-1-pin-6', 'led-1-in'); // Q1'
+                }
+            },
+            {
+                id: 'jkff-74ls76',
+                title: 'JK Flip-Flop Truth Table (74LS76)',
+                description: 'S0=J, S1=K, mono pulse clock, L0/L1 = Q/Qbar',
+                load: () => {
+                    this.placeIC('74LS76', document.getElementById('ic-1'), false);
+
+                    this.connectPins('vcc', 'ic-1-pin-16');      // PR2 inactive
+                    this.connectPins('vcc', 'ic-1-pin-10');      // CLR2 inactive
+                    this.connectPins('switch-0', 'ic-1-pin-11'); // J2
+                    this.connectPins('switch-1', 'ic-1-pin-14'); // K2
+                    this.connectPins('pulse-out', 'ic-1-pin-12'); // CLK2
+                    this.connectPins('ic-1-pin-9', 'led-0-in');  // Q2
+                    this.connectPins('ic-1-pin-8', 'led-1-in');  // Q2'
+                }
+            },
+            {
+                id: 'adder-74ls283',
+                title: '4-Bit Binary Addition (74LS283)',
+                description: 'S0..S3=A, S4..S7=B, outputs on L0..L4',
+                load: () => {
+                    this.placeIC('74LS283', document.getElementById('ic-1'), false);
+
+                    this.connectPins('switch-0', 'ic-1-pin-1');  // A1
+                    this.connectPins('switch-1', 'ic-1-pin-3');  // A2
+                    this.connectPins('switch-2', 'ic-1-pin-5');  // A3
+                    this.connectPins('switch-3', 'ic-1-pin-7');  // A4
+                    this.connectPins('switch-4', 'ic-1-pin-2');  // B1
+                    this.connectPins('switch-5', 'ic-1-pin-4');  // B2
+                    this.connectPins('switch-6', 'ic-1-pin-6');  // B3
+                    this.connectPins('switch-7', 'ic-1-pin-11'); // B4
+                    this.connectPins('gnd', 'ic-1-pin-15');      // C0
+
+                    this.connectPins('ic-1-pin-13', 'led-0-in'); // SUM1
+                    this.connectPins('ic-1-pin-12', 'led-1-in'); // SUM2
+                    this.connectPins('ic-1-pin-10', 'led-2-in'); // SUM3
+                    this.connectPins('ic-1-pin-9', 'led-3-in');  // SUM4
+                    this.connectPins('ic-1-pin-14', 'led-4-in'); // C4
+                }
+            },
+            {
+                id: 'half-adder',
+                title: 'Half Adder (74LS86 + 74LS08)',
+                description: 'S0=A, S1=B, L0=SUM, L1=CARRY',
+                load: () => {
+                    this.placeIC('74LS86', document.getElementById('ic-1'), false);
+                    this.placeIC('74LS08', document.getElementById('ic-2'), false);
+
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'led-0-in');
+
+                    this.connectPins('switch-0', 'ic-2-pin-1');
+                    this.connectPins('switch-1', 'ic-2-pin-2');
+                    this.connectPins('ic-2-pin-3', 'led-1-in');
+                }
+            },
+            {
+                id: 'full-adder',
+                title: 'Full Adder (74LS86 + 74LS08 + 74LS32)',
+                description: 'S0=A, S1=B, S2=Cin, L0=SUM, L1=Cout',
+                load: () => {
+                    this.placeIC('74LS86', document.getElementById('ic-1'), false);
+                    this.placeIC('74LS08', document.getElementById('ic-2'), false);
+                    this.placeIC('74LS32', document.getElementById('ic-3'), false);
+
+                    // XOR chain: x1=A xor B, SUM=x1 xor Cin
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'ic-1-pin-4');
+                    this.connectPins('switch-2', 'ic-1-pin-5');
+                    this.connectPins('ic-1-pin-6', 'led-0-in');
+
+                    // Carry terms: c1=A.B, c2=Cin.x1
+                    this.connectPins('switch-0', 'ic-2-pin-1');
+                    this.connectPins('switch-1', 'ic-2-pin-2');
+                    this.connectPins('switch-2', 'ic-2-pin-4');
+                    this.connectPins('ic-1-pin-3', 'ic-2-pin-5');
+
+                    // Cout = c1 OR c2
+                    this.connectPins('ic-2-pin-3', 'ic-3-pin-1');
+                    this.connectPins('ic-2-pin-6', 'ic-3-pin-2');
+                    this.connectPins('ic-3-pin-3', 'led-1-in');
+                }
+            },
+            {
+                id: 'half-subtractor',
+                title: 'Half Subtractor (74LS86 + 74LS04 + 74LS08)',
+                description: 'S0=A, S1=B, L0=DIFF, L1=BORROW',
+                load: () => {
+                    this.placeIC('74LS86', document.getElementById('ic-1'), false);
+                    this.placeIC('74LS04', document.getElementById('ic-2'), false);
+                    this.placeIC('74LS08', document.getElementById('ic-3'), false);
+
+                    // DIFF = A xor B
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'led-0-in');
+
+                    // BORROW = A' . B
+                    this.connectPins('switch-0', 'ic-2-pin-1');
+                    this.connectPins('ic-2-pin-2', 'ic-3-pin-1');
+                    this.connectPins('switch-1', 'ic-3-pin-2');
+                    this.connectPins('ic-3-pin-3', 'led-1-in');
+                }
+            },
+            {
+                id: 'parity-generator',
+                title: 'Parity Generator (74LS86)',
+                description: 'S0 xor S1 xor S2 xor S3 on L0',
+                load: () => {
+                    this.placeIC('74LS86', document.getElementById('ic-1'), false);
+
+                    this.connectPins('switch-0', 'ic-1-pin-1');
+                    this.connectPins('switch-1', 'ic-1-pin-2');
+                    this.connectPins('ic-1-pin-3', 'ic-1-pin-4');
+                    this.connectPins('switch-2', 'ic-1-pin-5');
+                    this.connectPins('ic-1-pin-6', 'ic-1-pin-9');
+                    this.connectPins('switch-3', 'ic-1-pin-10');
+                    this.connectPins('ic-1-pin-8', 'led-0-in');
+                }
+            },
+            {
+                id: 'mod6-counter',
+                title: 'Mod-6 Counter (74LS93 + 74LS00)',
+                description: 'Auto-reset at 6 using NAND reset logic',
+                load: () => {
+                    this.placeIC('74LS93', document.getElementById('ic-1'), false);
+                    this.placeIC('74LS00', document.getElementById('ic-2'), false);
+
+                    this.connectPins('clock-1hz', 'ic-1-pin-14');
+                    this.connectPins('ic-1-pin-12', 'ic-1-pin-1');
+
+                    // Reset logic: reset when QB and QC are HIGH.
+                    this.connectPins('ic-1-pin-9', 'ic-2-pin-1');  // QB
+                    this.connectPins('ic-1-pin-8', 'ic-2-pin-2');  // QC
+                    this.connectPins('ic-2-pin-3', 'ic-2-pin-4');
+                    this.connectPins('ic-2-pin-3', 'ic-2-pin-5');
+                    this.connectPins('ic-2-pin-6', 'ic-1-pin-2');
+                    this.connectPins('ic-2-pin-6', 'ic-1-pin-3');
+
+                    this.connectPins('ic-1-pin-12', 'led-0-in'); // QA
+                    this.connectPins('ic-1-pin-9', 'led-1-in');  // QB
+                    this.connectPins('ic-1-pin-8', 'led-2-in');  // QC
+                    this.connectPins('ic-1-pin-11', 'led-3-in'); // QD
+                }
+            },
+            {
+                id: 'frequency-divider',
+                title: 'Frequency Divider (74LS74)',
+                description: '1Hz in, divided-by-2 on L0',
+                load: () => {
+                    this.placeIC('74LS74', document.getElementById('ic-1'), false);
+
+                    this.connectPins('vcc', 'ic-1-pin-1');      // CLR1 inactive
+                    this.connectPins('vcc', 'ic-1-pin-4');      // PR1 inactive
+                    this.connectPins('clock-1hz', 'ic-1-pin-3'); // CLK1
+                    this.connectPins('ic-1-pin-6', 'ic-1-pin-2'); // D1 = Qbar
+                    this.connectPins('ic-1-pin-5', 'led-0-in'); // Q1
+                }
+            }
+        ];
+
+        this.presetExperiments = presets;
+
+        let selectedPreset = null;
+
+        presets.forEach(preset => {
+            const card = document.createElement('div');
+            card.className = 'ic-card';
+            card.innerHTML = `
+                <div class="ic-card-name">${preset.title}</div>
+                <div class="ic-card-desc">${preset.description}</div>
+            `;
+
+            card.onclick = () => {
+                document.querySelectorAll('#preset-grid .ic-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedPreset = preset;
+                runBtn.disabled = false;
+            };
+
+            grid.appendChild(card);
+        });
+
+        openBtn.addEventListener('click', () => {
+            selectedPreset = null;
+            runBtn.disabled = true;
+            document.querySelectorAll('#preset-grid .ic-card').forEach(c => c.classList.remove('selected'));
+            modal.classList.add('show');
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+
+        runBtn.addEventListener('click', () => {
+            if (!selectedPreset) return;
+            const presetChanged = this.currentPresetId && this.currentPresetId !== selectedPreset.id;
+
+            // Hard refresh when switching presets to guarantee a clean simulation state.
+            if (presetChanged) {
+                sessionStorage.setItem('trainer_pending_preset', selectedPreset.id);
+                location.reload();
+                return;
+            }
+
+            this.runPresetById(selectedPreset.id);
+            modal.classList.remove('show');
+        });
+    }
+
+    runPresetById(presetId) {
+        const preset = this.presetExperiments.find(p => p.id === presetId);
+        if (!preset) {
+            this.log('Preset', '!', `Preset not found: ${presetId}`);
+            return false;
+        }
+
+        this.clearBoardForPreset();
+        preset.load();
+        this.ensurePowerOn();
+        this.currentPresetId = preset.id;
+        this.log('Preset', 'P', `Loaded preset: ${preset.title}`);
+        return true;
+    }
+
+    applyPendingPresetOnLoad() {
+        const pendingPreset = sessionStorage.getItem('trainer_pending_preset');
+        if (!pendingPreset) return;
+
+        sessionStorage.removeItem('trainer_pending_preset');
+        this.runPresetById(pendingPreset);
+    }
+
+    applyPendingJsonOnLoad() {
+        const pendingJson = sessionStorage.getItem('trainer_pending_json');
+        const pendingJsonSource = sessionStorage.getItem('trainer_pending_json_source') || 'pending-json';
+        if (!pendingJson) return;
+
+        sessionStorage.removeItem('trainer_pending_json');
+        sessionStorage.removeItem('trainer_pending_json_source');
+        this.importCircuitJsonText(pendingJson, pendingJsonSource);
+    }
+
     setupRemoveIC() {
         const removeBtn = document.getElementById('remove-ic-btn');
 
@@ -639,6 +1099,361 @@ class SystemController {
 
             this.log('System', 'ℹ️', 'Click on an IC to remove it.');
         });
+    }
+
+    ensurePowerOn() {
+        if (!this.isPowered) {
+            document.getElementById('power-btn')?.click();
+        }
+    }
+
+    connectPins(sourcePin, targetPin, color = 'var(--color-text)') {
+        // Treat existing equivalent wire as success (important for JSON reloads).
+        const alreadyConnected = this.wiring.wires.some(w =>
+            (w.source === sourcePin && w.target === targetPin) ||
+            (w.source === targetPin && w.target === sourcePin)
+        );
+        if (alreadyConnected) {
+            return 'existing-wire';
+        }
+
+        const wireId = this.wiring.addWire(sourcePin, targetPin, color);
+        if (!wireId) {
+            this.log('Preset', '!', `Could not connect ${sourcePin} -> ${targetPin}`);
+        }
+        return wireId;
+    }
+
+    setSwitchState(index, isHigh) {
+        const switchBox = document.querySelector(`#input-switches .switch-group:nth-child(${index + 1}) .switch-box`);
+        if (!switchBox) return;
+
+        const currentlyHigh = switchBox.classList.contains('active');
+        if (currentlyHigh !== isHigh) {
+            switchBox.click();
+        }
+    }
+
+    resetAllSwitches() {
+        const switchBoxes = document.querySelectorAll('#input-switches .switch-box');
+        switchBoxes.forEach(box => {
+            if (box.classList.contains('active')) {
+                box.click();
+            }
+        });
+    }
+
+    clearBoardForPreset() {
+        // Remove all ICs (which also removes connected IC wires)
+        Array.from(this.icInstances.keys()).forEach(socketId => {
+            this.removeIC(socketId, false);
+        });
+
+        // Remove any remaining board wires
+        [...this.wiring.wires].forEach(wire => {
+            this.wiring.removeWire(wire.id);
+            this.removeWireUI(wire.id);
+        });
+
+        // Reset user controls and history so preset starts cleanly
+        this.resetAllSwitches();
+        this.history = [];
+        this.historyIndex = -1;
+        this.currentPresetId = null;
+        this.updateHistoryUI();
+    }
+
+    setupCircuitJsonIO() {
+        const saveBtn = document.getElementById('save-json-btn');
+        const loadBtn = document.getElementById('load-json-btn');
+        const fileInput = document.getElementById('json-file-input');
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                const payload = this.buildCircuitJson();
+                const text = JSON.stringify(payload, null, 2);
+                const filename = `ic-trainer-circuit-${Date.now()}.json`;
+                this.downloadTextFile(filename, text, 'application/json');
+                this.log('System', 'S', `Circuit exported: ${filename}`);
+            });
+        }
+
+        if (loadBtn && fileInput) {
+            loadBtn.addEventListener('click', () => {
+                fileInput.value = '';
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                try {
+                    const text = await file.text();
+                    // Hard refresh before applying JSON to guarantee clean simulation state.
+                    sessionStorage.setItem('trainer_pending_json', text);
+                    sessionStorage.setItem('trainer_pending_json_source', file.name);
+                    location.reload();
+                } catch (err) {
+                    console.error(err);
+                    this.log('Error', '!', 'Failed to read JSON file');
+                    alert('Failed to read JSON file.');
+                }
+            });
+        }
+    }
+
+    buildCircuitJson() {
+        const switches = [];
+        document.querySelectorAll('#input-switches .switch-box').forEach(box => {
+            switches.push(box.classList.contains('active') ? 1 : 0);
+        });
+
+        const shouldSkipAutoPowerWire = (wire) => {
+            const isPowerRail = (pin) => pin === 'vcc' || pin === 'gnd';
+            const isICPin = (pin) => /^ic-\d+-pin-\d+$/.test(pin);
+
+            const sideAIsRail = isPowerRail(wire.source) && isICPin(wire.target);
+            const sideBIsRail = isPowerRail(wire.target) && isICPin(wire.source);
+            if (!sideAIsRail && !sideBIsRail) return false;
+
+            const icPinId = isICPin(wire.source) ? wire.source : wire.target;
+            const railPin = isPowerRail(wire.source) ? wire.source : wire.target;
+
+            const match = icPinId.match(/^(ic-\d+)-pin-(\d+)$/);
+            if (!match) return false;
+
+            const socketId = match[1];
+            const pinNum = parseInt(match[2], 10);
+            const ic = this.icInstances.get(socketId);
+            if (!ic) return false;
+
+            return (railPin === 'vcc' && pinNum === ic.vccPin) ||
+                (railPin === 'gnd' && pinNum === ic.gndPin);
+        };
+
+        return {
+            schema: 'ic-trainer-circuit-v1',
+            createdAt: new Date().toISOString(),
+            powerOn: this.isPowered,
+            presetId: this.currentPresetId || null,
+            presetTitle: (this.currentPresetId && this.presetExperiments.find(p => p.id === this.currentPresetId)?.title) || null,
+            ics: Array.from(this.icInstances.entries()).map(([socket, ic]) => ({
+                socket,
+                type: ic.name
+            })),
+            wires: this.wiring.wires
+                .filter(w => !shouldSkipAutoPowerWire(w))
+                .map(w => ({
+                source: w.source,
+                target: w.target,
+                color: w.color
+                })),
+            switches
+        };
+    }
+
+    downloadTextFile(filename, text, mimeType) {
+        const blob = new Blob([text], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    importCircuitJsonText(text, sourceLabel = 'JSON') {
+        let payload = null;
+        try {
+            payload = JSON.parse(text);
+        } catch (err) {
+            this.log('Error', '!', `Invalid JSON syntax in ${sourceLabel}`);
+            alert(`Invalid JSON syntax in ${sourceLabel}.`);
+            return false;
+        }
+
+        const report = this.validateCircuitJson(payload);
+        const summaryLines = [
+            `Source: ${sourceLabel}`,
+            `Can run: ${report.errors.length === 0 ? 'YES' : 'NO'}`,
+            `Errors: ${report.errors.length}`,
+            `Warnings: ${report.warnings.length}`,
+            `Used ICs: ${report.usedICs.length ? report.usedICs.join(', ') : 'None'}`,
+            `Unavailable ICs: ${report.unavailableICs.length ? report.unavailableICs.join(', ') : 'None'}`,
+            `Available ICs: ${report.availableICs.join(', ')}`
+        ];
+
+        summaryLines.forEach(line => this.log('JSON', 'J', line));
+        report.errors.forEach(err => this.log('Error', '!', err));
+        report.warnings.forEach(warn => this.log('System', 'i', warn));
+
+        if (report.errors.length > 0) {
+            alert(`JSON load failed.\n\n${report.errors.join('\n')}`);
+            return false;
+        }
+
+        const applyResult = this.applyCircuitJson(payload);
+        if (!applyResult.ok) {
+            alert(`JSON loaded with wiring issues.\n\n${applyResult.errors.join('\n')}`);
+            return false;
+        }
+
+        this.log('JSON', 'J', 'Circuit loaded successfully from JSON');
+        return true;
+    }
+
+    validateCircuitJson(payload) {
+        const errors = [];
+        const warnings = [];
+        const availableICs = icRegistry.getAll().map(x => x.id);
+        const availableICSet = new Set(availableICs);
+        const knownSockets = new Set(['ic-1', 'ic-2', 'ic-3', 'ic-4']);
+        const icInfoMap = new Map(icRegistry.getAll().map(x => [x.id, x]));
+
+        if (!payload || typeof payload !== 'object') {
+            return {
+                errors: ['Top-level JSON must be an object.'],
+                warnings: [],
+                usedICs: [],
+                unavailableICs: [],
+                availableICs
+            };
+        }
+
+        if (!Array.isArray(payload.ics)) {
+            errors.push('`ics` must be an array.');
+        }
+        if (!Array.isArray(payload.wires)) {
+            errors.push('`wires` must be an array.');
+        }
+        if (!Array.isArray(payload.switches)) {
+            warnings.push('`switches` is missing or not an array. Defaults will be used.');
+        }
+
+        const usedICs = Array.isArray(payload.ics)
+            ? payload.ics.map(x => x?.type).filter(Boolean)
+            : [];
+        const unavailableICs = usedICs.filter(type => !availableICSet.has(type));
+
+        if (unavailableICs.length > 0) {
+            errors.push(`Unavailable ICs in file: ${Array.from(new Set(unavailableICs)).join(', ')}`);
+        }
+
+        const socketUsage = new Set();
+        const socketToType = new Map();
+        if (Array.isArray(payload.ics)) {
+            if (payload.ics.length > 4) {
+                errors.push(`Only 4 IC sockets are available, but JSON has ${payload.ics.length} ICs.`);
+            }
+
+            payload.ics.forEach((entry, index) => {
+                if (!entry || typeof entry !== 'object') {
+                    errors.push(`ics[${index}] must be an object with { socket, type }.`);
+                    return;
+                }
+
+                const { socket, type } = entry;
+                if (!knownSockets.has(socket)) {
+                    errors.push(`ics[${index}] uses invalid socket "${socket}". Valid: ic-1..ic-4.`);
+                }
+                if (socketUsage.has(socket)) {
+                    errors.push(`Duplicate IC assignment for socket "${socket}".`);
+                }
+                socketUsage.add(socket);
+                socketToType.set(socket, type);
+
+                if (!type || !availableICSet.has(type)) {
+                    errors.push(`ics[${index}] uses unknown IC type "${type}".`);
+                }
+            });
+        }
+
+        const validPins = new Set([
+            'vcc', 'gnd', 'gnd-2',
+            'clock-gnd', 'clock-1hz', 'clock-10hz', 'clock-100hz', 'clock-1khz', 'clock-10khz',
+            'pulse-out', 'pulse-gnd',
+            'bcd-a', 'bcd-b', 'bcd-c', 'bcd-d', 'bcd-out-a', 'bcd-out-b', 'bcd-out-c', 'bcd-out-d'
+        ]);
+
+        for (let i = 0; i < 8; i++) {
+            validPins.add(`switch-${i}`);
+            validPins.add(`led-${i}-in`);
+        }
+
+        socketToType.forEach((type, socket) => {
+            const icInfo = icInfoMap.get(type);
+            const pinCount = icInfo?.pinCount || 0;
+            for (let pin = 1; pin <= pinCount; pin++) {
+                validPins.add(`${socket}-pin-${pin}`);
+            }
+        });
+
+        if (Array.isArray(payload.wires)) {
+            payload.wires.forEach((wire, index) => {
+                if (!wire || typeof wire !== 'object') {
+                    errors.push(`wires[${index}] must be an object.`);
+                    return;
+                }
+                const { source, target } = wire;
+                if (typeof source !== 'string' || typeof target !== 'string') {
+                    errors.push(`wires[${index}] must have string "source" and "target".`);
+                    return;
+                }
+                if (!validPins.has(source)) {
+                    errors.push(`wires[${index}] source pin not found: "${source}".`);
+                }
+                if (!validPins.has(target)) {
+                    errors.push(`wires[${index}] target pin not found: "${target}".`);
+                }
+            });
+        }
+
+        return { errors, warnings, usedICs, unavailableICs, availableICs };
+    }
+
+    applyCircuitJson(payload) {
+        const errors = [];
+        const switches = Array.isArray(payload.switches) ? payload.switches : [];
+        const ics = Array.isArray(payload.ics) ? payload.ics : [];
+        const wires = Array.isArray(payload.wires) ? payload.wires : [];
+
+        this.clearBoardForPreset();
+
+        ics.forEach(entry => {
+            const socketEl = document.getElementById(entry.socket);
+            if (!socketEl) {
+                errors.push(`Socket not found: ${entry.socket}`);
+                return;
+            }
+            this.placeIC(entry.type, socketEl, false);
+            if (!this.icInstances.has(entry.socket)) {
+                errors.push(`Failed to place IC "${entry.type}" in ${entry.socket}`);
+            }
+        });
+
+        for (let i = 0; i < 8; i++) {
+            const val = switches[i];
+            this.setSwitchState(i, val === 1 || val === true || val === '1');
+        }
+
+        wires.forEach(wire => {
+            const ok = this.connectPins(wire.source, wire.target, wire.color || 'var(--color-text)');
+            if (!ok) {
+                errors.push(`Failed wire: ${wire.source} -> ${wire.target}`);
+            }
+        });
+
+        const shouldPowerOn = !!payload.powerOn;
+        if (shouldPowerOn) {
+            this.ensurePowerOn();
+        } else if (this.isPowered) {
+            document.getElementById('power-btn')?.click();
+        }
+
+        return { ok: errors.length === 0, errors };
     }
 
     placeIC(icName, socketElement, pushHistory = true) {
@@ -1030,7 +1845,13 @@ class SystemController {
         if (themeBtn) {
             themeBtn.addEventListener('click', () => {
                 const isDark = document.body.parentElement.getAttribute('data-theme') === 'dark';
-                document.body.parentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+                const nextTheme = isDark ? 'light' : 'dark';
+                document.body.parentElement.setAttribute('data-theme', nextTheme);
+                try {
+                    localStorage.setItem('ic-trainer-theme', nextTheme);
+                } catch (err) {
+                    console.warn('Theme preference could not be saved:', err);
+                }
             });
         }
     }
@@ -1210,6 +2031,8 @@ class SystemController {
 // Start Controller when DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
     window.controller = new SystemController();
+    window.controller.applyPendingPresetOnLoad();
+    window.controller.applyPendingJsonOnLoad();
 
     // Global debug function for ICs
     window.debugIC = (icName) => {
@@ -1272,6 +2095,13 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('power-btn').click();
         }
         console.log(`Power is now ${window.controller.isPowered ? 'ON' : 'OFF'}`);
+    };
+
+    // Global helpers for agent-generated JSON workflows
+    window.exportCircuitJSON = () => window.controller.buildCircuitJson();
+    window.loadCircuitJSON = (jsonInput) => {
+        const text = typeof jsonInput === 'string' ? jsonInput : JSON.stringify(jsonInput);
+        return window.controller.importCircuitJsonText(text, 'console-input');
     };
 
     // Global function to test LED connection

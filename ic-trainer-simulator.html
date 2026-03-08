@@ -5,6 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital IC Trainer</title>
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('ic-trainer-theme');
+                if (savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1432,6 +1446,29 @@
 
         <div class="control-group">
             <span class="group-label">Actions</span>
+            <button class="control-btn" id="run-preset-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M5 4h11l3 3v13H5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M12 10v8M8 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Run Preset</span>
+            </button>
+            <button class="control-btn" id="save-json-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 16V4M8 8l4-4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M4 20h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Save JSON</span>
+            </button>
+            <button class="control-btn" id="load-json-btn">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 4v12M8 12l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M4 20h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Load JSON</span>
+            </button>
             <button class="control-btn" id="remove-wire-btn">
                 <svg viewBox="0 0 24 24" fill="none">
                     <path d="M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -1648,6 +1685,28 @@
             </div>
         </div>
     </div>
+
+    <!-- Preset Experiments Modal -->
+    <div class="modal-overlay" id="preset-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Preset Experiments</h2>
+                <p>Load a ready-to-run setup for quick practice</p>
+            </div>
+
+            <div class="modal-section">
+                <h3>Available Presets</h3>
+                <div class="ic-grid" id="preset-grid"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="preset-cancel">Cancel</button>
+                <button class="modal-btn modal-btn-confirm" id="preset-run" disabled>Run Preset</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="json-file-input" accept=".json,application/json" style="display:none;">
 
     <script type="module" src="js/ic-registration.js"></script>
     <script type="module" src="js/ui.js"></script>

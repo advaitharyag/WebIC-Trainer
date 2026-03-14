@@ -34,6 +34,13 @@ class SystemController {
         this.wiring.registerPin('gnd', this.gndNode.id, 'POWER');
         this.wiring.registerPin('gnd-2', this.gndNode.id, 'POWER');
 
+        this.pinDrivers = new Map();
+        this.pinListeners = new Map();
+
+        this.pinDrivers.set('vcc', this.vccDriver);
+        this.pinDrivers.set('gnd', this.gndDriver);
+        this.pinDrivers.set('gnd-2', this.gndDriver);
+
         // UI State
         this.isPowered = false;
         this.wireMode = 'drag';
@@ -45,6 +52,16 @@ class SystemController {
         this.historyIndex = -1;
         this.currentPresetId = null;
         this.presetExperiments = [];
+
+        this.waveform = {
+            running: true,
+            sampleIntervalMs: 40,
+            timeWindowMs: 8000,
+            lastSampleAt: 0,
+            colors: ['#00e5ff', '#00ffa3', '#ffd166', '#ff6b6b', '#c77dff', '#72efdd', '#f4a261'],
+            channels: [],
+            signalOptions: []
+        };
 
         this.init();
     }
@@ -59,6 +76,9 @@ class SystemController {
         this.setupICModal();
         this.setupPresetExperiments();
         this.setupCircuitJsonIO();
+        this.setupTruthTableGenerator();
+        this.setupCodeGenerators();
+        this.setupWaveformViewer();
         this.setupRemoveIC();
         this.setupWiringEvents();
         this.setupHistoryControls();
@@ -68,11 +88,17 @@ class SystemController {
     }
 
     startSimulation() {
-        const loop = () => {
+        const loop = (now) => {
             if (this.isPowered) {
                 this.engine.step(10); // Run 10ns per frame
                 this.updatePinStates(); // Update visual indicators
             }
+
+            const t = typeof now === 'number' ? now : performance.now();
+            this.captureWaveformSample(t);
+            this.refreshWaveformChannelValues();
+            this.renderWaveformViewer();
+
             requestAnimationFrame(loop);
         };
         requestAnimationFrame(loop);
@@ -281,6 +307,7 @@ class SystemController {
             // Driver function
             const switchDriver = () => this.isPowered ? switchState : STATE_FLOAT;
             this.engine.addDriver(switchNode.id, switchDriver);
+            this.pinDrivers.set(`switch-${i}`, switchDriver);
             // Initialize node state
             switchNode.update();
 
@@ -304,44 +331,45 @@ class SystemController {
 
             const led = document.createElement('div');
             led.className = 'led';
-            led.id = `led-${i}`;
+            led.id = 'led-' + i;
 
             const socket = document.createElement('div');
             socket.className = 'socket socket-red';
-            socket.dataset.pinId = `led-${i}-in`;
+            socket.dataset.pinId = 'led-' + i + '-in';
 
             const label = document.createElement('span');
             label.className = 'led-number';
-            label.innerText = `L${i}`;
+            label.innerText = 'L' + i;
 
             group.append(led, socket, label);
             container.appendChild(group);
 
             // Logic
             const ledNode = this.engine.createNode();
-            this.wiring.registerPin(`led-${i}-in`, ledNode.id, 'INPUT');
+            const ledPinId = 'led-' + i + '-in';
+            this.wiring.registerPin(ledPinId, ledNode.id, 'INPUT');
 
-            this.engine.addListener(ledNode.id, (state) => {
-                console.log(`LED ${i} listener triggered, state: ${state === STATE_HIGH ? 'HIGH' : state === STATE_LOW ? 'LOW' : state === STATE_FLOAT ? 'FLOAT' : 'ERROR'}, powered: ${this.isPowered}`);
+            const ledListener = (state) => {
                 if (!this.isPowered) {
                     led.className = 'led';
                     led.style.backgroundColor = '';
                     return;
                 }
+
                 if (state === STATE_HIGH) {
                     led.className = 'led on';
                     led.style.backgroundColor = '';
-                    console.log(`LED ${i} turned ON`);
                 } else if (state === STATE_ERROR) {
                     led.className = 'led on';
                     led.style.backgroundColor = 'purple';
-                }
-                else {
+                } else {
                     led.className = 'led';
                     led.style.backgroundColor = '';
-                    console.log(`LED ${i} turned OFF (state: ${state})`);
                 }
-            });
+            };
+
+            this.engine.addListener(ledNode.id, ledListener);
+            this.pinListeners.set(ledPinId, ledListener);
 
             // Initial update
             ledNode.update();
@@ -522,9 +550,9 @@ class SystemController {
         let pulseActive = false;
 
         // Driver function for pulse output
-        this.engine.addDriver(pulseOutNode.id, () => {
-            return this.isPowered && pulseActive ? STATE_HIGH : STATE_LOW;
-        });
+        const pulseDriver = () => this.isPowered && pulseActive ? STATE_HIGH : STATE_LOW;
+        this.engine.addDriver(pulseOutNode.id, pulseDriver);
+        this.pinDrivers.set('pulse-out', pulseDriver);
 
         pulseBtn.addEventListener('click', () => {
             if (!this.isPowered) {
@@ -1041,18 +1069,26 @@ class SystemController {
 
         runBtn.addEventListener('click', () => {
             if (!selectedPreset) return;
-            const presetChanged = this.currentPresetId && this.currentPresetId !== selectedPreset.id;
-
-            // Hard refresh when switching presets to guarantee a clean simulation state.
-            if (presetChanged) {
-                sessionStorage.setItem('trainer_pending_preset', selectedPreset.id);
-                location.reload();
-                return;
-            }
-
             this.runPresetById(selectedPreset.id);
             modal.classList.remove('show');
         });
+
+        // Fallback assignment keeps button responsive if listeners are re-bound externally.
+        openBtn.onclick = () => {
+            const refreshedSavedPresets = this.getSavedPresetRecords().map((record) => ({
+                id: record.id,
+                title: record.title,
+                description: record.description,
+                payload: record.payload,
+                source: 'saved-json'
+            }));
+            this.presetExperiments = [...refreshedSavedPresets, ...builtInPresets];
+
+            selectedPreset = null;
+            runBtn.disabled = true;
+            renderPresetCards();
+            modal.classList.add('show');
+        };
     }
 
     runPresetById(presetId) {
@@ -1203,6 +1239,572 @@ class SystemController {
         this.updateHistoryUI();
     }
 
+        setupWaveformViewer() {
+        this.waveform.canvas = document.getElementById('waveform-canvas');
+        this.waveform.empty = document.getElementById('waveform-empty');
+        this.waveform.channelsEl = document.getElementById('waveform-channels');
+        this.waveform.selectEl = document.getElementById('waveform-signal-select');
+        this.waveform.addBtn = document.getElementById('waveform-add-channel');
+        this.waveform.toggleBtn = document.getElementById('waveform-toggle');
+        this.waveform.clearBtn = document.getElementById('waveform-clear');
+        this.waveform.exportBtn = document.getElementById('waveform-export');
+        this.waveform.timebaseEl = document.getElementById('waveform-timebase');
+        this.waveform.stopBtn = document.getElementById('waveform-stop');
+        this.waveform.closeBtn = document.getElementById('waveform-close');
+        this.waveform.openBtn = document.getElementById('waveform-open-btn');
+        this.waveform.overlayEl = document.getElementById('waveform-panel');
+
+        if (!this.waveform.canvas || !this.waveform.selectEl || !this.waveform.channelsEl) return;
+
+        this.waveform.ctx = this.waveform.canvas.getContext('2d');
+        this.waveform.signalOptions = this.buildWaveformSignalOptions();
+        this.populateWaveformSignalSelect();
+
+        this.waveform.addBtn?.addEventListener('click', () => {
+            const pinId = this.waveform.selectEl.value;
+            if (!pinId) return;
+            this.addWaveformChannel(pinId);
+        });
+
+        this.waveform.toggleBtn?.addEventListener('click', () => {
+            this.waveform.running = !this.waveform.running;
+            this.waveform.toggleBtn.textContent = this.waveform.running ? 'Pause' : 'Run';
+        });
+
+        this.waveform.stopBtn?.addEventListener('click', () => {
+            this.waveform.running = false;
+            if (this.waveform.toggleBtn) this.waveform.toggleBtn.textContent = 'Run';
+            this.log('Waveform', 'WF', 'Waveform capture stopped for inspection.');
+        });
+
+        this.waveform.openBtn?.addEventListener('click', () => {
+            this.waveform.overlayEl?.classList.add('open');
+            this.waveform.overlayEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            this.renderWaveformViewer();
+        });
+
+        this.waveform.closeBtn?.addEventListener('click', () => {
+            this.waveform.overlayEl?.classList.remove('open');
+        });
+
+        this.waveform.clearBtn?.addEventListener('click', () => {
+            this.waveform.channels.forEach(ch => { ch.samples = []; });
+            this.waveform.lastSampleAt = 0;
+            this.renderWaveformViewer();
+        });
+
+        this.waveform.exportBtn?.addEventListener('click', () => {
+            this.exportWaveformCsv();
+        });
+
+        this.waveform.timebaseEl?.addEventListener('change', () => {
+            const ms = parseInt(this.waveform.timebaseEl.value, 10);
+            if (!Number.isNaN(ms) && ms > 0) {
+                this.waveform.timeWindowMs = ms;
+            }
+        });
+
+        window.addEventListener('resize', () => this.renderWaveformViewer(), { passive: true });
+
+        this.addWaveformChannel('switch-0');
+        this.addWaveformChannel('clock-1hz');
+
+        this.waveform.overlayEl?.classList.remove('open');
+        this.log('System', 'WF', 'Waveform viewer ready.');
+    }
+
+    buildWaveformSignalOptions() {
+        const options = [];
+        for (let i = 0; i < 8; i++) {
+            options.push({ pinId: `switch-${i}`, label: `S${i} (Switch ${i})` });
+        }
+        for (let i = 0; i < 8; i++) {
+            options.push({ pinId: `led-${i}-in`, label: `L${i} (LED ${i})` });
+        }
+        options.push(
+            { pinId: 'clock-1hz', label: 'CLK 1Hz' },
+            { pinId: 'clock-10hz', label: 'CLK 10Hz' },
+            { pinId: 'clock-100hz', label: 'CLK 100Hz' },
+            { pinId: 'clock-1khz', label: 'CLK 1kHz' },
+            { pinId: 'clock-10khz', label: 'CLK 10kHz' },
+            { pinId: 'pulse-out', label: 'Pulse OUT' },
+            { pinId: 'bcd-out-a', label: 'BCD OUT A' },
+            { pinId: 'bcd-out-b', label: 'BCD OUT B' },
+            { pinId: 'bcd-out-c', label: 'BCD OUT C' },
+            { pinId: 'bcd-out-d', label: 'BCD OUT D' }
+        );
+        return options;
+    }
+
+    populateWaveformSignalSelect() {
+        if (!this.waveform.selectEl) return;
+        this.waveform.selectEl.innerHTML = '';
+        this.waveform.signalOptions.forEach((opt) => {
+            const el = document.createElement('option');
+            el.value = opt.pinId;
+            el.textContent = opt.label;
+            this.waveform.selectEl.appendChild(el);
+        });
+    }
+
+    addWaveformChannel(pinId) {
+        if (!pinId) return;
+        const already = this.waveform.channels.some(c => c.pinId === pinId);
+        if (already) return;
+
+        const idx = this.waveform.channels.length % this.waveform.colors.length;
+        const label = this.waveform.signalOptions.find(s => s.pinId === pinId)?.label || pinId;
+        this.waveform.channels.push({
+            id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            pinId,
+            label,
+            color: this.waveform.colors[idx],
+            samples: [],
+            lastValue: 'X'
+        });
+
+        this.renderWaveformChannelList();
+    }
+
+    removeWaveformChannel(channelId) {
+        this.waveform.channels = this.waveform.channels.filter(ch => ch.id !== channelId);
+        this.renderWaveformChannelList();
+        this.renderWaveformViewer();
+    }
+
+    renderWaveformChannelList() {
+        if (!this.waveform.channelsEl) return;
+        this.waveform.channelsEl.innerHTML = '';
+
+        this.waveform.channels.forEach((channel) => {
+            const item = document.createElement('div');
+            item.className = 'waveform-channel-item';
+
+            const main = document.createElement('div');
+            main.className = 'waveform-channel-main';
+
+            const dot = document.createElement('span');
+            dot.className = 'waveform-dot';
+            dot.style.background = channel.color;
+
+            const label = document.createElement('span');
+            label.className = 'waveform-label';
+            label.textContent = channel.label;
+
+            const value = document.createElement('span');
+            value.className = 'waveform-value';
+            value.dataset.channelId = channel.id;
+            value.textContent = channel.lastValue;
+
+            main.append(dot, label, value);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'control-btn';
+            removeBtn.textContent = 'X';
+            removeBtn.style.minWidth = '34px';
+            removeBtn.style.padding = '6px';
+            removeBtn.addEventListener('click', () => this.removeWaveformChannel(channel.id));
+
+            item.append(main, removeBtn);
+            this.waveform.channelsEl.appendChild(item);
+        });
+
+        if (this.waveform.empty) {
+            this.waveform.empty.style.display = this.waveform.channels.length ? 'none' : 'flex';
+        }
+    }
+
+    refreshWaveformChannelValues() {
+        if (!this.waveform.channelsEl) return;
+        this.waveform.channels.forEach((channel) => {
+            const el = this.waveform.channelsEl.querySelector(`.waveform-value[data-channel-id="${channel.id}"]`);
+            if (el) el.textContent = channel.lastValue;
+        });
+    }
+
+    captureWaveformSample(nowMs) {
+        if (!this.waveform.running || !this.waveform.channels.length) return;
+        if (!this.waveform.lastSampleAt) this.waveform.lastSampleAt = nowMs;
+        if ((nowMs - this.waveform.lastSampleAt) < this.waveform.sampleIntervalMs) return;
+
+        this.waveform.lastSampleAt = nowMs;
+        const cutoff = nowMs - this.waveform.timeWindowMs;
+
+        this.waveform.channels.forEach((ch) => {
+            const v = this.getWaveformStateValue(ch.pinId);
+            ch.lastValue = v;
+            ch.samples.push({ t: nowMs, v });
+            while (ch.samples.length > 0 && ch.samples[0].t < cutoff) {
+                ch.samples.shift();
+            }
+        });
+    }
+
+    getWaveformStateValue(pinId) {
+        const nodeId = this.wiring.pinToNodeId.get(pinId);
+        if (!nodeId) return 'X';
+        const node = this.engine.nodes.get(nodeId);
+        if (!node) return 'X';
+        node.update();
+        if (node.state === STATE_HIGH) return '1';
+        if (node.state === STATE_LOW) return '0';
+        return 'X';
+    }
+
+    ensureWaveformCanvasSize() {
+        const canvas = this.waveform.canvas;
+        if (!canvas) return;
+
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.max(300, canvas.clientWidth || 300);
+        const h = Math.max(220, canvas.clientHeight || 320);
+        const rw = Math.floor(w * dpr);
+        const rh = Math.floor(h * dpr);
+
+        if (canvas.width !== rw || canvas.height !== rh) {
+            canvas.width = rw;
+            canvas.height = rh;
+        }
+
+        this.waveform.dpr = dpr;
+    }
+
+    renderWaveformViewer() {
+        if (!this.waveform.ctx || !this.waveform.canvas) return;
+        this.ensureWaveformCanvasSize();
+
+        const ctx = this.waveform.ctx;
+        const dpr = this.waveform.dpr || 1;
+        const w = this.waveform.canvas.width / dpr;
+        const h = this.waveform.canvas.height / dpr;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.fillStyle = '#05090f';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = 'rgba(70, 96, 124, 0.35)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 10; i++) {
+            const x = (i / 10) * w;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+            ctx.stroke();
+        }
+        for (let i = 0; i <= 8; i++) {
+            const y = (i / 8) * h;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+        }
+
+        if (!this.waveform.channels.length) return;
+
+        const now = performance.now();
+        const from = now - this.waveform.timeWindowMs;
+        const rowH = h / this.waveform.channels.length;
+
+        this.waveform.channels.forEach((ch, idx) => {
+            const yTop = idx * rowH + 8;
+            const yHigh = yTop + 8;
+            const yLow = yTop + rowH - 10;
+            const yMid = (yHigh + yLow) / 2;
+
+            ctx.strokeStyle = 'rgba(120, 170, 210, 0.18)';
+            ctx.beginPath();
+            ctx.moveTo(0, yTop + rowH - 2);
+            ctx.lineTo(w, yTop + rowH - 2);
+            ctx.stroke();
+
+            ctx.fillStyle = ch.color;
+            ctx.font = '11px monospace';
+            ctx.fillText(ch.label, 8, yTop + 10);
+
+            const samples = ch.samples.filter(s => s.t >= from);
+            if (!samples.length) return;
+
+            ctx.strokeStyle = ch.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            for (let i = 0; i < samples.length; i++) {
+                const s = samples[i];
+                const x = ((s.t - from) / this.waveform.timeWindowMs) * w;
+                const y = s.v === '1' ? yHigh : (s.v === '0' ? yLow : yMid);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    const p = samples[i - 1];
+                    const px = ((p.t - from) / this.waveform.timeWindowMs) * w;
+                    const py = p.v === '1' ? yHigh : (p.v === '0' ? yLow : yMid);
+                    if (py !== y) {
+                        ctx.lineTo(x, py);
+                    }
+                    ctx.lineTo(x, y);
+                    if (Math.abs(x - px) < 0.5) {
+                        ctx.lineTo(x + 0.5, y);
+                    }
+                }
+            }
+
+            ctx.stroke();
+        });
+    }
+
+    exportWaveformCsv() {
+        if (!this.waveform.channels.length) {
+            this.log('Waveform', 'WF', 'No waveform channels to export.');
+            return;
+        }
+
+        const headers = ['time_ms', ...this.waveform.channels.map(ch => ch.label)];
+        const timeSet = new Set();
+        this.waveform.channels.forEach(ch => ch.samples.forEach(s => timeSet.add(Math.round(s.t))));
+        const times = Array.from(timeSet).sort((a, b) => a - b);
+
+        const rows = times.map((t) => {
+            const values = this.waveform.channels.map((ch) => {
+                const exact = ch.samples.find(s => Math.round(s.t) === t);
+                if (exact) return exact.v;
+                const prev = [...ch.samples].reverse().find(s => Math.round(s.t) <= t);
+                return prev ? prev.v : 'X';
+            });
+            return [t, ...values].join(',');
+        });
+
+        const csv = `${headers.join(',')}\n${rows.join('\n')}\n`;
+        const filename = `waveform-${Date.now()}.csv`;
+        this.downloadTextFile(filename, csv, 'text/csv');
+        this.log('Waveform', 'WF', `Waveform exported: ${filename}`);
+    }
+
+    setupTruthTableGenerator() {
+        const btn = document.getElementById('truth-table-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', async () => {
+            const inputIndices = this.getTruthTableInputSwitches();
+            if (inputIndices.length === 0) {
+                this.log('TruthTable', 'TT', 'No connected switch inputs found for truth table generation.');
+                alert('No connected switch inputs found. Connect switch pins to your circuit first.');
+                return;
+            }
+
+            const outputIndices = this.getTruthTableOutputLeds();
+            if (outputIndices.length === 0) {
+                this.log('TruthTable', 'TT', 'No connected LED outputs found for truth table generation.');
+                alert('No connected LED outputs found. Connect circuit outputs to LED inputs first.');
+                return;
+            }
+
+            const originalSwitches = this.getCurrentSwitchStates();
+            const wasPowered = this.isPowered;
+
+            if (!this.isPowered) {
+                this.ensurePowerOn();
+            }
+
+            const rows = [];
+            const combinations = 1 << inputIndices.length;
+
+            for (let mask = 0; mask < combinations; mask++) {
+                const inputBits = inputIndices.map((_, bitPos) => ((mask >> bitPos) & 1).toString());
+                inputIndices.forEach((switchIndex, bitPos) => {
+                    const bit = (mask >> bitPos) & 1;
+                    this.setSwitchState(switchIndex, bit === 1);
+                });
+
+                this.stabilizeCircuitForTruthTable();
+                const outputBits = outputIndices.map((idx) => this.getPinStateBit(`led-${idx}-in`));
+                rows.push({ inputBits, outputBits });
+            }
+
+            originalSwitches.forEach((isHigh, idx) => this.setSwitchState(idx, !!isHigh));
+            this.stabilizeCircuitForTruthTable();
+
+            if (!wasPowered && this.isPowered) {
+                document.getElementById('power-btn')?.click();
+            }
+
+            const csv = this.buildTruthTableCsv(inputIndices, outputIndices, rows);
+            const filename = `truth-table-${Date.now()}.csv`;
+            this.downloadTextFile(filename, csv, 'text/csv');
+
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(csv);
+                    this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Downloaded ${filename} and copied CSV.`);
+                } else {
+                    this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Downloaded ${filename}.`);
+                }
+            } catch {
+                this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Downloaded ${filename}.`);
+            }
+        });
+    }
+
+    getCurrentSwitchStates() {
+        const states = [];
+        document.querySelectorAll('#input-switches .switch-box').forEach(box => {
+            states.push(box.classList.contains('active'));
+        });
+        return states;
+    }
+
+    getTruthTableInputSwitches() {
+        const used = new Set();
+        this.wiring.wires.forEach((wire) => {
+            const sourceMatch = wire.source.match(/^switch-(\d+)$/);
+            const targetMatch = wire.target.match(/^switch-(\d+)$/);
+            if (sourceMatch) used.add(parseInt(sourceMatch[1], 10));
+            if (targetMatch) used.add(parseInt(targetMatch[1], 10));
+        });
+
+        return Array.from(used).filter((x) => x >= 0 && x <= 7).sort((a, b) => a - b).slice(0, 8);
+    }
+
+    getTruthTableOutputLeds() {
+        const used = new Set();
+        this.wiring.wires.forEach((wire) => {
+            const sourceMatch = wire.source.match(/^led-(\d+)-in$/);
+            const targetMatch = wire.target.match(/^led-(\d+)-in$/);
+            if (sourceMatch) used.add(parseInt(sourceMatch[1], 10));
+            if (targetMatch) used.add(parseInt(targetMatch[1], 10));
+        });
+
+        return Array.from(used).filter((x) => x >= 0 && x <= 7).sort((a, b) => a - b);
+    }
+
+    stabilizeCircuitForTruthTable() {
+        for (let i = 0; i < 8; i++) {
+            this.engine.step(25);
+            this.updatePinStates();
+        }
+    }
+
+    getPinStateBit(pinId) {
+        const nodeId = this.wiring.pinToNodeId.get(pinId);
+        if (!nodeId) return 'X';
+        const node = this.engine.nodes.get(nodeId);
+        if (!node) return 'X';
+        node.update();
+        if (node.state === STATE_HIGH) return '1';
+        if (node.state === STATE_LOW) return '0';
+        return 'X';
+    }
+
+    buildTruthTableCsv(inputIndices, outputIndices, rows) {
+        const inputHeaders = inputIndices.map(i => `S${i}`);
+        const outputHeaders = outputIndices.map(i => `L${i}`);
+        const header = [...inputHeaders, ...outputHeaders].join(',');
+        const body = rows.map(row => [...row.inputBits, ...row.outputBits].join(',')).join('\n');
+        return `${header}\n${body}\n`;
+    }
+        setupCodeGenerators() {
+        const btn = document.getElementById('generate-code-btn');
+        const targetSelect = document.getElementById('codegen-target');
+        if (!btn) return;
+
+        btn.addEventListener('click', () => {
+            const model = this.buildCodeGenerationModel();
+            if (!model) return;
+
+            const stamp = Date.now();
+            const target = targetSelect?.value || 'arduino';
+
+            if (target === 'arduino' || target === 'all') {
+                this.downloadTextFile(`web-ic-trainer-${stamp}.ino`, this.generateArduinoCode(model), 'text/plain');
+            }
+            if (target === 'python' || target === 'all') {
+                this.downloadTextFile(`web-ic-trainer-${stamp}.py`, this.generatePythonCode(model), 'text/plain');
+            }
+            if (target === 'cpp' || target === 'all') {
+                this.downloadTextFile(`web-ic-trainer-${stamp}.cpp`, this.generateCppCode(model), 'text/plain');
+            }
+            if (target === 'verilog' || target === 'all') {
+                this.downloadTextFile(`web-ic-trainer-${stamp}.v`, this.generateVerilogCode(model), 'text/plain');
+            }
+
+            const targetLabel = targetSelect?.selectedOptions?.[0]?.textContent || target;
+            this.log('CodeGen', 'CG', `Generated code for ${targetLabel}.`);
+        });
+    }
+
+    buildCodeGenerationModel() {
+        const inputIndices = this.getTruthTableInputSwitches();
+        const outputIndices = this.getTruthTableOutputLeds();
+
+        if (inputIndices.length === 0) {
+            alert('No connected switch inputs found. Connect switch pins first.');
+            return null;
+        }
+        if (outputIndices.length === 0) {
+            alert('No connected LED outputs found. Connect circuit outputs to LED inputs first.');
+            return null;
+        }
+
+        const originalSwitches = this.getCurrentSwitchStates();
+        const wasPowered = this.isPowered;
+        if (!this.isPowered) this.ensurePowerOn();
+
+        const rows = [];
+        const combinations = 1 << inputIndices.length;
+
+        for (let mask = 0; mask < combinations; mask++) {
+            const inputBits = inputIndices.map((_, bitPos) => ((mask >> bitPos) & 1).toString());
+            inputIndices.forEach((switchIndex, bitPos) => {
+                const bit = (mask >> bitPos) & 1;
+                this.setSwitchState(switchIndex, bit === 1);
+            });
+            this.stabilizeCircuitForTruthTable();
+            const outputBits = outputIndices.map((idx) => this.getPinStateBit(`led-${idx}-in`) === '1' ? '1' : '0');
+            rows.push({ inputBits, outputBits });
+        }
+
+        originalSwitches.forEach((isHigh, idx) => this.setSwitchState(idx, !!isHigh));
+        this.stabilizeCircuitForTruthTable();
+        if (!wasPowered && this.isPowered) document.getElementById('power-btn')?.click();
+
+        return {
+            inputIndices,
+            outputIndices,
+            rows,
+            map: rows.map(r => r.outputBits.join(''))
+        };
+    }
+
+    generateArduinoCode(model) {
+        const inPins = model.inputIndices.map((_, i) => `2 + ${i}`).join(', ');
+        const outPins = model.outputIndices.map((_, i) => `10 + ${i}`).join(', ');
+        const mapVals = model.rows
+            .map((row) => row.outputBits.reduce((acc, bit, j) => acc | ((bit === '1' ? 1 : 0) << j), 0))
+            .join(', ');
+        return `// Auto-generated by Web IC Trainer\n// Input order: ${model.inputIndices.map(i => 'S' + i).join(', ')}\n// Output order: ${model.outputIndices.map(i => 'L' + i).join(', ')}\n\nconst uint8_t IN_COUNT = ${model.inputIndices.length};\nconst uint8_t OUT_COUNT = ${model.outputIndices.length};\nconst uint8_t inputPins[IN_COUNT] = { ${inPins} };\nconst uint8_t outputPins[OUT_COUNT] = { ${outPins} };\nconst uint8_t truthMap[${model.map.length}] = { ${mapVals} };\n\nvoid setup() {\n  for (uint8_t i = 0; i < IN_COUNT; i++) pinMode(inputPins[i], INPUT_PULLUP);\n  for (uint8_t i = 0; i < OUT_COUNT; i++) pinMode(outputPins[i], OUTPUT);\n}\n\nvoid loop() {\n  uint16_t idx = 0;\n  for (uint8_t i = 0; i < IN_COUNT; i++) {\n    uint8_t bit = digitalRead(inputPins[i]) == LOW ? 1 : 0;\n    idx |= (bit << i);\n  }\n  uint8_t out = truthMap[idx];\n  for (uint8_t j = 0; j < OUT_COUNT; j++) digitalWrite(outputPins[j], (out >> j) & 0x1);\n}\n`;
+    }
+
+    generatePythonCode(model) {
+        const mapVals = model.rows
+            .map((row) => row.outputBits.reduce((acc, bit, j) => acc | ((bit === '1' ? 1 : 0) << j), 0))
+            .join(', ');
+        return `# Auto-generated by Web IC Trainer\n# Input order: ${model.inputIndices.map(i => 'S' + i).join(', ')}\n# Output order: ${model.outputIndices.map(i => 'L' + i).join(', ')}\n\nTRUTH_MAP = [${mapVals}]\nIN_COUNT = ${model.inputIndices.length}\nOUT_COUNT = ${model.outputIndices.length}\n\ndef evaluate(bits):\n    idx = 0\n    for i, b in enumerate(bits):\n        idx |= ((1 if b else 0) << i)\n    out = TRUTH_MAP[idx]\n    return [(out >> j) & 1 for j in range(OUT_COUNT)]\n\nif __name__ == '__main__':\n    print('Truth Table')\n    print('Inputs:', ${JSON.stringify(model.inputIndices.map(i => `S${i}`))})\n    print('Outputs:', ${JSON.stringify(model.outputIndices.map(i => `L${i}`))})\n    total = 1 << IN_COUNT\n    for idx in range(total):\n        bits = [(idx >> i) & 1 for i in range(IN_COUNT)]\n        out_bits = evaluate(bits)\n        in_str = ''.join(str(b) for b in bits)\n        out_str = ''.join(str(b) for b in out_bits)\n        print(f'{in_str} -> {out_str}')\n`;
+    }
+
+    generateCppCode(model) {
+        const mapVals = model.rows
+            .map((row) => row.outputBits.reduce((acc, bit, j) => acc | ((bit === '1' ? 1 : 0) << j), 0))
+            .join(', ');
+        return `// Auto-generated by Web IC Trainer\n#include <array>\n#include <cstdint>\n#include <iostream>\n\nconstexpr int IN_COUNT = ${model.inputIndices.length};\nconstexpr int OUT_COUNT = ${model.outputIndices.length};\nconstexpr std::array<uint8_t, ${model.map.length}> TRUTH_MAP = { ${mapVals} };\n\nstd::array<uint8_t, OUT_COUNT> evaluate(const std::array<uint8_t, IN_COUNT>& in) {\n    uint16_t idx = 0;\n    for (int i = 0; i < IN_COUNT; ++i) idx |= ((in[i] & 1) << i);\n    uint8_t out = TRUTH_MAP[idx];\n    std::array<uint8_t, OUT_COUNT> y{};\n    for (int j = 0; j < OUT_COUNT; ++j) y[j] = (out >> j) & 1;\n    return y;\n}\n\nint main() {\n    std::cout << "Truth Table\\n";\n    for (int idx = 0; idx < (1 << IN_COUNT); ++idx) {\n        std::array<uint8_t, IN_COUNT> in{};\n        for (int i = 0; i < IN_COUNT; ++i) in[i] = (idx >> i) & 1;\n\n        auto out = evaluate(in);\n\n        for (int i = 0; i < IN_COUNT; ++i) std::cout << int(in[i]);\n        std::cout << " -> ";\n        for (int j = 0; j < OUT_COUNT; ++j) std::cout << int(out[j]);\n        std::cout << "\\n";\n    }\n    return 0;\n}\n`;
+    }
+
+    generateVerilogCode(model) {
+        const inW = model.inputIndices.length - 1;
+        const outW = model.outputIndices.length - 1;
+        const cases = model.rows.map((r, i) => `      ${model.inputIndices.length}'b${r.inputBits.slice().reverse().join('')}: out = ${model.outputIndices.length}'b${model.map[i].split('').reverse().join('')};`).join('\n');
+        return `// Auto-generated by Web IC Trainer\nmodule web_ic_trainer_logic (\n    input  wire [${inW}:0] in,\n    output reg  [${outW}:0] out\n);\n\nalways @(*) begin\n    case (in)\n${cases}\n      default: out = ${model.outputIndices.length}'b0;\n    endcase\nend\n\nendmodule\n`;
+    }
     setupCircuitJsonIO() {
         const saveBtn = document.getElementById('save-json-btn');
         const loadBtn = document.getElementById('load-json-btn');
@@ -1214,7 +1816,6 @@ class SystemController {
                 const text = JSON.stringify(payload, null, 2);
                 const filename = `ic-trainer-circuit-${Date.now()}.json`;
                 this.downloadTextFile(filename, text, 'application/json');
-                this.persistPresetJson(payload, `Saved ${new Date().toLocaleString()}`);
                 this.log('System', 'S', `Circuit exported: ${filename}`);
             });
         }
@@ -1353,13 +1954,26 @@ class SystemController {
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            return parsed.filter(item =>
+            const filtered = parsed.filter(item =>
                 item &&
                 typeof item.id === 'string' &&
                 typeof item.title === 'string' &&
                 item.payload &&
-                typeof item.payload === 'object'
+                typeof item.payload === 'object' &&
+                !/^Saved\s+\d/.test(item.title) &&
+                !/^Imported\s+logic-expression\b/i.test(item.title)
             );
+
+            // Persist cleanup so removed auto-import entries do not return.
+            if (filtered.length !== parsed.length) {
+                try {
+                    localStorage.setItem('trainer_saved_presets', JSON.stringify(filtered));
+                } catch (err) {
+                    console.warn('Failed to clean up saved presets:', err);
+                }
+            }
+
+            return filtered;
         } catch (err) {
             console.warn('Failed to read saved presets:', err);
             return [];
@@ -1793,6 +2407,16 @@ class SystemController {
 
         this.wiring.onNetUpdate = (pins, newNode) => {
             pins.forEach(pinId => {
+                const driverFn = this.pinDrivers.get(pinId);
+                if (driverFn) {
+                    this.engine.addDriver(newNode.id, driverFn);
+                }
+
+                const listenerFn = this.pinListeners.get(pinId);
+                if (listenerFn) {
+                    this.engine.addListener(newNode.id, listenerFn);
+                }
+
                 // Handle IC pins: format is "ic-X-pin-Y"
                 if (pinId.startsWith('ic-')) {
                     const parts = pinId.split('-');
@@ -2248,7 +2872,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup Copy Log button
     const copyLogBtn = document.getElementById('copy-log');
     if (copyLogBtn) {
-        copyLogBtn.addEventListener('click', () => {
+        const fallbackCopyText = (text) => {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            textarea.style.pointerEvents = 'none';
+            textarea.style.top = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+
+            let ok = false;
+            try {
+                ok = document.execCommand('copy');
+            } catch (err) {
+                ok = false;
+            }
+
+            textarea.remove();
+            return ok;
+        };
+
+        const copyText = async (text) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (err) {
+                    // Fall back to execCommand.
+                }
+            }
+            return fallbackCopyText(text);
+        };
+
+        const showCopyFeedback = (ok) => {
+            const originalText = copyLogBtn.textContent;
+            copyLogBtn.textContent = ok ? 'Copied!' : 'Copy Failed';
+            copyLogBtn.style.background = ok ? 'var(--color-success)' : 'var(--color-danger)';
+            copyLogBtn.style.color = 'white';
+
+            setTimeout(() => {
+                copyLogBtn.textContent = originalText;
+                copyLogBtn.style.background = '';
+                copyLogBtn.style.color = '';
+            }, 2000);
+        };
+
+        copyLogBtn.addEventListener('click', async () => {
             const logContainer = document.getElementById('activity-log');
             if (!logContainer) return;
 
@@ -2261,28 +2933,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `${time} ${icon} ${text}`.trim();
             }).join('\n');
 
-            // Copy to clipboard
-            navigator.clipboard.writeText(logText).then(() => {
-                // Visual feedback
-                const originalText = copyLogBtn.textContent;
-                copyLogBtn.textContent = 'Copied!';
-                copyLogBtn.style.background = 'var(--color-success)';
-                copyLogBtn.style.color = 'white';
+            const copied = await copyText(logText);
+            showCopyFeedback(copied);
 
-                setTimeout(() => {
-                    copyLogBtn.textContent = originalText;
-                    copyLogBtn.style.background = '';
-                    copyLogBtn.style.color = '';
-                }, 2000);
-
-                window.controller.log('System', '📋', 'Activity log copied to clipboard');
-            }).catch(err => {
-                console.error('Failed to copy log:', err);
-                window.controller.log('Error', '⚠️', 'Failed to copy log to clipboard');
-            });
+            if (copied) {
+                window.controller.log('System', 'Copy', 'Activity log copied to clipboard');
+            } else {
+                window.controller.log('Error', '!', 'Failed to copy log to clipboard');
+            }
         });
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

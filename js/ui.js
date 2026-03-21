@@ -52,6 +52,7 @@ class SystemController {
         this.historyIndex = -1;
         this.currentPresetId = null;
         this.presetExperiments = [];
+        this.expressionMeta = null;
 
         this.waveform = {
             running: true,
@@ -78,6 +79,7 @@ class SystemController {
         this.setupCircuitJsonIO();
         this.setupTruthTableGenerator();
         this.setupCodeGenerators();
+        this.setupExpressionBuilder();
         this.setupWaveformViewer();
         this.setupRemoveIC();
         this.setupWiringEvents();
@@ -1236,6 +1238,8 @@ class SystemController {
         this.history = [];
         this.historyIndex = -1;
         this.currentPresetId = null;
+        this.expressionMeta = null;
+        this.syncExpressionContextUI();
         this.updateHistoryUI();
     }
 
@@ -1733,6 +1737,551 @@ class SystemController {
         });
     }
 
+    setupExpressionBuilder() {
+        const input = document.getElementById('expression-input');
+        const btn = document.getElementById('build-expression-btn');
+        const toggleBtn = document.getElementById('expression-toggle-btn');
+        const panel = document.getElementById('expression-panel');
+        if (!input || !btn) return;
+
+        const syncPanelState = () => {
+            if (!panel || !toggleBtn) return;
+            const isOpen = !panel.hidden;
+            const textEl = toggleBtn.querySelector('span');
+            if (textEl) textEl.textContent = isOpen ? 'Close Expr' : 'Bool Expr';
+            if (isOpen) {
+                setTimeout(() => input.focus(), 0);
+            }
+        };
+
+        if (toggleBtn && panel) {
+            toggleBtn.addEventListener('click', () => {
+                panel.hidden = !panel.hidden;
+                syncPanelState();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !panel.hidden) {
+                    panel.hidden = true;
+                    syncPanelState();
+                }
+            });
+            syncPanelState();
+        }
+
+        const runBuild = () => {
+            const expressionText = String(input.value || '').trim();
+            let plan;
+            try {
+                plan = this.createExpressionBuildPlan(expressionText);
+            } catch (err) {
+                const msg = err?.message || 'Expression build failed';
+                this.log('Expr', '!', msg);
+                alert(`Expression build failed: ${msg}`);
+                return;
+            }
+
+            const payload = {
+                schema: 'ic-trainer-circuit-v1',
+                createdAt: new Date().toISOString(),
+                powerOn: true,
+                presetId: null,
+                presetTitle: null,
+                expressionMeta: {
+                    source: plan.originalExpression,
+                    output: plan.outputName,
+                    variables: [...plan.variables]
+                },
+                ics: plan.chips.map((chip) => ({
+                    socket: chip.socket,
+                    type: chip.type
+                })),
+                wires: plan.connections.map((c) => ({
+                    source: c.source,
+                    target: c.target,
+                    color: c.color || 'var(--color-text)'
+                })),
+                switches: Array.from({ length: 8 }, () => 0)
+            };
+
+            sessionStorage.setItem('trainer_pending_json', JSON.stringify(payload));
+            sessionStorage.setItem('trainer_pending_json_source', 'expression-build');
+            this.log(
+                'Expr',
+                'EX',
+                `Compiled "${plan.outputName}" (${plan.gates.length} gate(s), ${plan.chips.length} IC(s)). Reloading with power ON.`
+            );
+            location.reload();
+        };
+
+        btn.addEventListener('click', runBuild);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                runBuild();
+            }
+        });
+
+        this.syncExpressionContextUI();
+    }
+
+    syncExpressionContextUI() {
+        const input = document.getElementById('expression-input');
+        const display = document.getElementById('expression-active-display');
+        const expr = this.expressionMeta && typeof this.expressionMeta.source === 'string'
+            ? this.expressionMeta.source
+            : '';
+
+        if (input && expr) {
+            input.value = expr;
+        }
+        if (display) {
+            display.textContent = expr ? `Expression: ${expr}` : 'Expression: -';
+            display.title = expr ? `Active expression: ${expr}` : 'No expression metadata on current board';
+        }
+        const toggleBtn = document.getElementById('expression-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.title = expr ? `Open Boolean expression builder (active: ${expr})` : 'Open Boolean expression builder';
+        }
+    }
+
+    buildExpressionCircuit(expressionText) {
+        const wasPowered = this.isPowered;
+        let plan;
+        try {
+            plan = this.createExpressionBuildPlan(expressionText);
+        } catch (err) {
+            const msg = err?.message || 'Invalid expression';
+            this.log('Expr', '!', msg);
+            return { ok: false, error: msg };
+        }
+
+        try {
+            this.clearBoardForPreset();
+
+            const socketIds = ['ic-1', 'ic-2', 'ic-3', 'ic-4'];
+            for (let i = 0; i < plan.chips.length; i++) {
+                const chip = plan.chips[i];
+                const socketId = socketIds[i];
+                const socketEl = document.getElementById(socketId);
+                if (!socketEl) throw new Error(`Socket not found: ${socketId}`);
+                this.placeIC(chip.type, socketEl, false);
+                if (!this.icInstances.has(socketId)) {
+                    throw new Error(`Failed to place ${chip.type} in ${socketId}`);
+                }
+            }
+
+            const wireErrors = [];
+            for (const conn of plan.connections) {
+                const ok = this.connectPins(conn.source, conn.target, conn.color || 'var(--color-text)');
+                if (!ok) {
+                    wireErrors.push(`${conn.source} -> ${conn.target}`);
+                }
+            }
+            if (wireErrors.length > 0) {
+                throw new Error(`Failed to connect ${wireErrors.length} wire(s): ${wireErrors.slice(0, 5).join(', ')}`);
+            }
+
+            this.expressionMeta = {
+                source: plan.originalExpression,
+                output: plan.outputName,
+                variables: [...plan.variables]
+            };
+            this.syncExpressionContextUI();
+
+            if (wasPowered) {
+                this.ensurePowerOn();
+            } else if (this.isPowered) {
+                document.getElementById('power-btn')?.click();
+            }
+
+            return {
+                ok: true,
+                stats: {
+                    output: plan.outputName,
+                    variables: [...plan.variables],
+                    gateCount: plan.gates.length,
+                    icCount: plan.chips.length
+                }
+            };
+        } catch (err) {
+            // Keep board in known clean state on any build failure after mutation starts.
+            this.clearBoardForPreset();
+            this.expressionMeta = null;
+            this.syncExpressionContextUI();
+            if (wasPowered) {
+                this.ensurePowerOn();
+            } else if (this.isPowered) {
+                document.getElementById('power-btn')?.click();
+            }
+            const msg = err?.message || 'Expression build failed';
+            this.log('Expr', '!', msg);
+            return { ok: false, error: msg };
+        }
+    }
+
+    createExpressionBuildPlan(expressionText) {
+        const normalized = String(expressionText || '').trim();
+        if (!normalized) throw new Error('Expression is empty. Use format like: F = (A+B).C');
+
+        const eqPos = normalized.indexOf('=');
+        if (eqPos <= 0 || eqPos !== normalized.lastIndexOf('=')) {
+            throw new Error('Expression must contain exactly one "=" in the form OUT = expression.');
+        }
+
+        const lhs = normalized.slice(0, eqPos).trim();
+        const rhs = normalized.slice(eqPos + 1).trim();
+
+        if (!/^[A-Za-z][A-Za-z0-9]*$/.test(lhs)) {
+            throw new Error(`Invalid output name "${lhs}". Use letters/digits, starting with a letter.`);
+        }
+        if (!rhs) throw new Error('Right-hand expression is empty.');
+
+        const tokens = this.tokenizeBooleanExpression(rhs);
+        const expanded = this.insertImplicitAnd(tokens);
+        const rpn = this.toRpn(expanded);
+        const ast = this.buildAstFromRpn(rpn);
+        const graph = this.astToGateGraph(ast);
+        const variables = Array.from(graph.variables).sort((a, b) => a.localeCompare(b));
+        if (variables.length > 8) {
+            throw new Error(`Expression uses ${variables.length} variables. Maximum supported is 8 (S0..S7).`);
+        }
+
+        const chipPlan = this.mapGatesToTtlChips(graph.gates);
+        if (chipPlan.chips.length > 4) {
+            throw new Error(`Expression requires ${chipPlan.chips.length} ICs; board supports 4.`);
+        }
+
+        const variablePins = new Map();
+        variables.forEach((name, index) => variablePins.set(name, `switch-${index}`));
+
+        const outputPinByGate = new Map();
+        chipPlan.gatePlacements.forEach((placement) => {
+            outputPinByGate.set(placement.gateId, `${placement.socket}-pin-${placement.outPin}`);
+        });
+
+        const sourcePinFromRef = (ref) => {
+            if (ref.startsWith('var:')) {
+                const name = ref.slice(4);
+                const pin = variablePins.get(name);
+                if (!pin) throw new Error(`No switch mapping for variable ${name}`);
+                return pin;
+            }
+            if (ref.startsWith('gate:')) {
+                const id = ref.slice(5);
+                const pin = outputPinByGate.get(id);
+                if (!pin) throw new Error(`No output pin mapping for gate ${id}`);
+                return pin;
+            }
+            throw new Error(`Unknown node reference ${ref}`);
+        };
+
+        const connections = [];
+        const dedupe = new Set();
+        const pushConn = (source, target, color = 'var(--color-text)') => {
+            const key = `${source}->${target}`;
+            if (dedupe.has(key)) return;
+            dedupe.add(key);
+            connections.push({ source, target, color });
+        };
+
+        chipPlan.gatePlacements.forEach((placement) => {
+            const gate = graph.gates.find((g) => g.id === placement.gateId);
+            if (!gate) return;
+            for (let i = 0; i < gate.inputs.length; i++) {
+                const source = sourcePinFromRef(gate.inputs[i]);
+                const target = `${placement.socket}-pin-${placement.inPins[i]}`;
+                pushConn(source, target);
+            }
+        });
+
+        const finalSource = sourcePinFromRef(graph.outputRef);
+        pushConn(finalSource, 'led-0-in');
+
+        return {
+            originalExpression: normalized,
+            outputName: lhs,
+            variables,
+            gates: graph.gates,
+            chips: chipPlan.chips,
+            connections
+        };
+    }
+
+    tokenizeBooleanExpression(expr) {
+        const tokens = [];
+        let i = 0;
+        while (i < expr.length) {
+            const ch = expr[i];
+            if (/\s/.test(ch)) {
+                i++;
+                continue;
+            }
+
+            if (/[A-Za-z]/.test(ch)) {
+                const start = i;
+                i++;
+                while (i < expr.length && /[A-Za-z0-9]/.test(expr[i])) i++;
+                tokens.push({ type: 'id', value: expr.slice(start, i), pos: start + 1 });
+                continue;
+            }
+
+            if (ch === '(') {
+                tokens.push({ type: 'lp', value: ch, pos: i + 1 });
+                i++;
+                continue;
+            }
+            if (ch === ')') {
+                tokens.push({ type: 'rp', value: ch, pos: i + 1 });
+                i++;
+                continue;
+            }
+            if (ch === '+' || ch === '.' || ch === '^' || ch === "'") {
+                tokens.push({ type: 'op', value: ch, pos: i + 1 });
+                i++;
+                continue;
+            }
+
+            throw new Error(`Unsupported character "${ch}" at position ${i + 1}.`);
+        }
+
+        if (!tokens.length) throw new Error('Right-hand expression is empty.');
+        return tokens;
+    }
+
+    insertImplicitAnd(tokens) {
+        const out = [];
+        const isLeftOperandEnd = (t) => t.type === 'id' || t.type === 'rp' || (t.type === 'op' && t.value === "'");
+        const isRightOperandStart = (t) => t.type === 'id' || t.type === 'lp';
+
+        for (let i = 0; i < tokens.length; i++) {
+            const cur = tokens[i];
+            out.push(cur);
+            if (i === tokens.length - 1) continue;
+            const next = tokens[i + 1];
+            if (isLeftOperandEnd(cur) && isRightOperandStart(next)) {
+                out.push({ type: 'op', value: '.', pos: next.pos, implied: true });
+            }
+        }
+        return out;
+    }
+
+    toRpn(tokens) {
+        const output = [];
+        const ops = [];
+        const prec = { '+': 1, '^': 2, '.': 3, "'": 4 };
+        const assoc = { '+': 'left', '^': 'left', '.': 'left', "'": 'left' };
+
+        for (const token of tokens) {
+            if (token.type === 'id') {
+                output.push(token);
+                continue;
+            }
+            if (token.type === 'lp') {
+                ops.push(token);
+                continue;
+            }
+            if (token.type === 'rp') {
+                let found = false;
+                while (ops.length) {
+                    const top = ops.pop();
+                    if (top.type === 'lp') {
+                        found = true;
+                        break;
+                    }
+                    output.push(top);
+                }
+                if (!found) throw new Error(`Unbalanced ")" at position ${token.pos}.`);
+                continue;
+            }
+            if (token.type === 'op') {
+                while (ops.length) {
+                    const top = ops[ops.length - 1];
+                    if (top.type !== 'op') break;
+                    const pTop = prec[top.value];
+                    const pCur = prec[token.value];
+                    const leftAssoc = assoc[token.value] === 'left';
+                    if ((leftAssoc && pCur <= pTop) || (!leftAssoc && pCur < pTop)) {
+                        output.push(ops.pop());
+                    } else {
+                        break;
+                    }
+                }
+                ops.push(token);
+                continue;
+            }
+        }
+
+        while (ops.length) {
+            const top = ops.pop();
+            if (top.type === 'lp' || top.type === 'rp') {
+                throw new Error('Unbalanced parentheses in expression.');
+            }
+            output.push(top);
+        }
+        return output;
+    }
+
+    buildAstFromRpn(rpn) {
+        const stack = [];
+        const opToType = { '+': 'OR', '.': 'AND', '^': 'XOR' };
+
+        for (const token of rpn) {
+            if (token.type === 'id') {
+                stack.push({ type: 'VAR', name: token.value, pos: token.pos });
+                continue;
+            }
+
+            if (token.type === 'op' && token.value === "'") {
+                const a = stack.pop();
+                if (!a) throw new Error(`Missing operand for "'" near position ${token.pos}.`);
+                stack.push({ type: 'NOT', input: a, pos: token.pos });
+                continue;
+            }
+
+            if (token.type === 'op') {
+                const b = stack.pop();
+                const a = stack.pop();
+                if (!a || !b) throw new Error(`Missing operand for "${token.value}" near position ${token.pos}.`);
+                stack.push({ type: opToType[token.value], left: a, right: b, pos: token.pos });
+            }
+        }
+
+        if (stack.length !== 1) throw new Error('Expression syntax is invalid.');
+        return stack[0];
+    }
+
+    astToGateGraph(ast) {
+        const gates = [];
+        const variables = new Set();
+        let gateIndex = 0;
+
+        const walk = (node) => {
+            if (node.type === 'VAR') {
+                variables.add(node.name);
+                return `var:${node.name}`;
+            }
+            if (node.type === 'NOT') {
+                const source = walk(node.input);
+                const id = `g${++gateIndex}`;
+                gates.push({ id, type: 'NOT', inputs: [source] });
+                return `gate:${id}`;
+            }
+            if (node.type === 'AND' || node.type === 'OR' || node.type === 'XOR') {
+                const left = walk(node.left);
+                const right = walk(node.right);
+                const id = `g${++gateIndex}`;
+                gates.push({ id, type: node.type, inputs: [left, right] });
+                return `gate:${id}`;
+            }
+            throw new Error(`Unsupported AST node type: ${node.type}`);
+        };
+
+        const outputRef = walk(ast);
+        return { gates, variables, outputRef };
+    }
+
+    mapGatesToTtlChips(gates) {
+        const defs = [
+            {
+                gateType: 'NOT',
+                icType: '74LS04',
+                capacity: 6,
+                slots: [
+                    { inPins: [1], outPin: 2 },
+                    { inPins: [3], outPin: 4 },
+                    { inPins: [5], outPin: 6 },
+                    { inPins: [9], outPin: 8 },
+                    { inPins: [11], outPin: 10 },
+                    { inPins: [13], outPin: 12 }
+                ]
+            },
+            {
+                gateType: 'AND',
+                icType: '74LS08',
+                capacity: 4,
+                slots: [
+                    { inPins: [1, 2], outPin: 3 },
+                    { inPins: [4, 5], outPin: 6 },
+                    { inPins: [9, 10], outPin: 8 },
+                    { inPins: [12, 13], outPin: 11 }
+                ]
+            },
+            {
+                gateType: 'OR',
+                icType: '74LS32',
+                capacity: 4,
+                slots: [
+                    { inPins: [1, 2], outPin: 3 },
+                    { inPins: [4, 5], outPin: 6 },
+                    { inPins: [9, 10], outPin: 8 },
+                    { inPins: [12, 13], outPin: 11 }
+                ]
+            },
+            {
+                gateType: 'XOR',
+                icType: '74LS86',
+                capacity: 4,
+                slots: [
+                    { inPins: [1, 2], outPin: 3 },
+                    { inPins: [4, 5], outPin: 6 },
+                    { inPins: [9, 10], outPin: 8 },
+                    { inPins: [12, 13], outPin: 11 }
+                ]
+            }
+        ];
+
+        const chips = [];
+        const gatePlacements = [];
+        const socketIds = ['ic-1', 'ic-2', 'ic-3', 'ic-4'];
+
+        defs.forEach((def) => {
+            const group = gates.filter((g) => g.type === def.gateType);
+            for (let i = 0; i < group.length; i++) {
+                const chipIndex = Math.floor(i / def.capacity);
+                const slotIndex = i % def.capacity;
+                if (!chips[def.gateType]) chips[def.gateType] = [];
+                if (!chips[def.gateType][chipIndex]) {
+                    chips[def.gateType][chipIndex] = { type: def.icType, gateType: def.gateType };
+                }
+                gatePlacements.push({
+                    gateId: group[i].id,
+                    gateType: def.gateType,
+                    chipType: def.icType,
+                    chipGroupIndex: chipIndex,
+                    slotIndex,
+                    inPins: [...def.slots[slotIndex].inPins],
+                    outPin: def.slots[slotIndex].outPin
+                });
+            }
+        });
+
+        const flatChips = [];
+        defs.forEach((def) => {
+            const list = chips[def.gateType] || [];
+            list.forEach((chip) => flatChips.push(chip));
+        });
+
+        flatChips.forEach((chip, idx) => {
+            chip.socket = socketIds[idx];
+        });
+
+        const chipByTypeAndIndex = new Map();
+        defs.forEach((def) => {
+            const list = flatChips.filter((chip) => chip.gateType === def.gateType);
+            list.forEach((chip, idx) => {
+                chipByTypeAndIndex.set(`${def.gateType}:${idx}`, chip);
+            });
+        });
+
+        gatePlacements.forEach((p) => {
+            const chip = chipByTypeAndIndex.get(`${p.gateType}:${p.chipGroupIndex}`);
+            if (!chip) throw new Error(`Internal placement error for gate ${p.gateId}.`);
+            p.socket = chip.socket;
+        });
+
+        return { chips: flatChips, gatePlacements };
+    }
+
     buildCodeGenerationModel() {
         const inputIndices = this.getTruthTableInputSwitches();
         const outputIndices = this.getTruthTableOutputLeds();
@@ -1880,6 +2429,7 @@ class SystemController {
             powerOn: this.isPowered,
             presetId: this.currentPresetId || null,
             presetTitle: (this.currentPresetId && this.presetExperiments.find(p => p.id === this.currentPresetId)?.title) || null,
+            expressionMeta: this.expressionMeta ? { ...this.expressionMeta } : null,
             ics: Array.from(this.icInstances.entries()).map(([socket, ic]) => ({
                 socket,
                 type: ic.name
@@ -1944,7 +2494,13 @@ class SystemController {
         }
 
         this.log('JSON', 'J', 'Circuit loaded successfully from JSON');
-        this.persistPresetJson(payload, `Imported ${sourceLabel}`);
+        const source = String(sourceLabel || '').trim();
+        const isExpressionImport = /^expression-build$/i.test(source) ||
+            (payload && payload.expressionMeta && typeof payload.expressionMeta === 'object');
+        const shouldPersistImportedPreset = !isExpressionImport;
+        if (shouldPersistImportedPreset) {
+            this.persistPresetJson(payload, `Imported ${sourceLabel}`);
+        }
         return true;
     }
 
@@ -1961,7 +2517,9 @@ class SystemController {
                 item.payload &&
                 typeof item.payload === 'object' &&
                 !/^Saved\s+\d/.test(item.title) &&
-                !/^Imported\s+logic-expression\b/i.test(item.title)
+                !/^Imported\s+logic-expression\b/i.test(item.title) &&
+                !/^Imported\s+expression-build\b/i.test(item.title) &&
+                !(item.payload && item.payload.expressionMeta && typeof item.payload.expressionMeta === 'object')
             );
 
             // Persist cleanup so removed auto-import entries do not return.
@@ -2173,6 +2731,11 @@ class SystemController {
         } else if (this.isPowered) {
             document.getElementById('power-btn')?.click();
         }
+
+        this.expressionMeta = payload && payload.expressionMeta && typeof payload.expressionMeta === 'object'
+            ? { ...payload.expressionMeta }
+            : null;
+        this.syncExpressionContextUI();
 
         return { ok: errors.length === 0, errors };
     }
@@ -2944,22 +3507,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

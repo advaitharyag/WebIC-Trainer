@@ -53,6 +53,7 @@ class SystemController {
         this.currentPresetId = null;
         this.presetExperiments = [];
         this.expressionMeta = null;
+        this.preventImportedPresetPollution = true;
 
         this.waveform = {
             running: true,
@@ -2494,12 +2495,16 @@ class SystemController {
         }
 
         this.log('JSON', 'J', 'Circuit loaded successfully from JSON');
-        const source = String(sourceLabel || '').trim();
-        const isExpressionImport = /^expression-build$/i.test(source) ||
-            (payload && payload.expressionMeta && typeof payload.expressionMeta === 'object');
-        const shouldPersistImportedPreset = !isExpressionImport;
-        if (shouldPersistImportedPreset) {
-            this.persistPresetJson(payload, `Imported ${sourceLabel}`);
+        // Precaution: never auto-add imported JSON circuits to Preset Experiments.
+        // Presets should come only from explicit Save JSON action or built-in presets.
+        if (!this.preventImportedPresetPollution) {
+            const source = String(sourceLabel || '').trim();
+            const isExpressionImport = /^expression-build$/i.test(source) ||
+                (payload && payload.expressionMeta && typeof payload.expressionMeta === 'object');
+            const shouldPersistImportedPreset = !isExpressionImport;
+            if (shouldPersistImportedPreset) {
+                this.persistPresetJson(payload, `Imported ${sourceLabel}`);
+            }
         }
         return true;
     }
@@ -2517,6 +2522,7 @@ class SystemController {
                 item.payload &&
                 typeof item.payload === 'object' &&
                 !/^Saved\s+\d/.test(item.title) &&
+                !/^Imported\b/i.test(item.title) &&
                 !/^Imported\s+logic-expression\b/i.test(item.title) &&
                 !/^Imported\s+expression-build\b/i.test(item.title) &&
                 !(item.payload && item.payload.expressionMeta && typeof item.payload.expressionMeta === 'object')
@@ -3507,7 +3513,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
 
 
 

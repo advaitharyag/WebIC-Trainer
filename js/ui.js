@@ -9,6 +9,25 @@ import { icRegistry } from './ic-registration.js';
 import { ClockManager } from './clock-manager.js';
 import { PIN_TYPE } from './ttl-chip.js';
 
+const DATASHEET_URLS = {
+    '74LS00': 'https://www.futurlec.com/Datasheet/74ls/74LS00.pdf',
+    '74LS02': 'https://www.futurlec.com/Datasheet/74ls/74LS02.pdf',
+    '74LS04': 'https://www.futurlec.com/Datasheet/74ls/74LS04.pdf',
+    '74LS08': 'https://www.futurlec.com/Datasheet/74ls/74LS08.pdf',
+    '74LS32': 'https://www.futurlec.com/Datasheet/74ls/74LS32.pdf',
+    '74LS86': 'https://www.futurlec.com/Datasheet/74ls/74LS86.pdf',
+    '74LS74': 'https://www.futurlec.com/Datasheet/74ls/74LS74.pdf',
+    '74LS76': 'https://www.futurlec.com/Datasheet/74ls/74LS76.pdf',
+    '74LS90': 'https://www.futurlec.com/Datasheet/74ls/74LS90.pdf',
+    '74LS93': 'https://www.futurlec.com/Datasheet/74ls/74LS93.pdf',
+    '74LS138': 'https://www.futurlec.com/Datasheet/74ls/74LS138.pdf',
+    '74LS47': 'https://www.futurlec.com/Datasheet/74ls/74LS47.pdf',
+    '74LS151': 'https://www.futurlec.com/Datasheet/74ls/74LS151.pdf',
+    '74LS153': 'https://www.futurlec.com/Datasheet/74ls/74LS153.pdf',
+    '74LS157': 'https://www.jameco.com/Jameco/Products/ProdDS/301612-DS01.pdf',
+    '74LS283': 'https://www.futurlec.com/Datasheet/74ls/74LS283.pdf'
+};
+
 class SystemController {
     constructor() {
         this.engine = new CircuitEngine();
@@ -54,6 +73,7 @@ class SystemController {
         this.presetExperiments = [];
         this.expressionMeta = null;
         this.preventImportedPresetPollution = true;
+        this._missingDatasheetWarnings = new Set();
 
         this.waveform = {
             running: true,
@@ -592,13 +612,31 @@ class SystemController {
         let selectedIC = null;
         let targetSocket = null;
 
+        const isValidDatasheetUrl = (value) => {
+            if (typeof value !== 'string') return false;
+            const trimmed = value.trim();
+            if (!trimmed) return false;
+            try {
+                const parsed = new URL(trimmed, window.location.origin);
+                return ['http:', 'https:', 'file:'].includes(parsed.protocol);
+            } catch (_) {
+                return false;
+            }
+        };
+
         // Populate Grid from registry
         icRegistry.getAll().forEach(icInfo => {
             const card = document.createElement('div');
             card.className = 'ic-card';
+            const datasheetUrl = DATASHEET_URLS[icInfo.id];
+            const hasDatasheet = isValidDatasheetUrl(datasheetUrl);
             card.innerHTML = `
                 <div class="ic-card-name">${icInfo.id}</div>
                 <div class="ic-card-desc">${icInfo.description}</div>
+                ${hasDatasheet
+                    ? `<a class="ic-card-datasheet" href="${datasheetUrl}" target="_blank" rel="noopener noreferrer">View Datasheet</a>`
+                    : `<span class="ic-card-datasheet disabled">Datasheet unavailable</span>`
+                }
             `;
             card.onclick = () => {
                 document.querySelectorAll('.ic-card').forEach(c => c.classList.remove('selected'));
@@ -606,6 +644,22 @@ class SystemController {
                 selectedIC = icInfo.id;
                 confirm.disabled = false;
             };
+
+            const datasheetLink = card.querySelector('.ic-card-datasheet');
+            if (datasheetLink) {
+                datasheetLink.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    if (!hasDatasheet) {
+                        event.preventDefault();
+                    }
+                });
+            }
+
+            if (!hasDatasheet && !this._missingDatasheetWarnings.has(icInfo.id)) {
+                this._missingDatasheetWarnings.add(icInfo.id);
+                console.warn(`[Datasheet] Missing/invalid datasheet URL for ${icInfo.id}`);
+            }
+
             grid.appendChild(card);
         });
 
@@ -3513,8 +3567,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-
 
 
 

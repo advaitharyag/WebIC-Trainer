@@ -355,8 +355,43 @@
             opacity: 0.8;
         }
 
+        .ic-card-datasheet {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--color-accent);
+            text-decoration: none;
+            border-bottom: 1px dashed transparent;
+            line-height: 1.2;
+        }
+
+        .ic-card-datasheet:hover {
+            text-decoration: underline;
+            border-bottom-color: currentColor;
+        }
+
+        .ic-card-datasheet.disabled {
+            color: var(--color-text-secondary);
+            opacity: 0.7;
+            cursor: not-allowed;
+            text-decoration: none;
+            border-bottom-color: transparent;
+            pointer-events: none;
+        }
+
         .ic-card.selected .ic-card-desc {
             opacity: 1;
+        }
+
+        .ic-card.selected .ic-card-datasheet {
+            color: #ffffff;
+            border-bottom-color: rgba(255, 255, 255, 0.55);
+        }
+
+        .ic-card.selected .ic-card-datasheet.disabled {
+            color: rgba(255, 255, 255, 0.75);
+            border-bottom-color: transparent;
         }
 
         .modal-actions {

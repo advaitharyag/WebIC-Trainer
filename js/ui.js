@@ -1155,6 +1155,14 @@ class SystemController {
             return false;
         }
 
+        // If user switches from one preset to a different one, reload first for a clean state.
+        if (this.currentPresetId && this.currentPresetId !== presetId) {
+            sessionStorage.setItem('trainer_pending_preset', presetId);
+            this.log('Preset', 'P', `Switching preset (${this.currentPresetId} -> ${presetId}) with clean reload...`);
+            location.reload();
+            return true;
+        }
+
         if (preset.payload) {
             const report = this.validateCircuitJson(preset.payload);
             if (report.errors.length > 0) {
@@ -3567,9 +3575,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-
-
 
 
 

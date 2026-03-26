@@ -7,6 +7,25 @@
     <title>Web IC Trainer</title>
     <script>
         (function () {
+            var params = new URLSearchParams(window.location.search);
+            var launchedFromLanding = params.get('launch') === '1';
+
+            try {
+                if (launchedFromLanding) {
+                    sessionStorage.setItem('webic-landing-seen', '1');
+                }
+
+                if (!launchedFromLanding && sessionStorage.getItem('webic-landing-seen') !== '1') {
+                    window.location.replace('landing.html');
+                    return;
+                }
+            } catch (e) {
+                if (!launchedFromLanding) {
+                    window.location.replace('landing.html');
+                    return;
+                }
+            }
+
             try {
                 var savedTheme = localStorage.getItem('ic-trainer-theme');
                 if (savedTheme === 'dark') {
@@ -216,7 +235,8 @@
         .control-select:hover {
             border-color: var(--color-accent);
             background: var(--color-panel-hover);
-        }
+        }
+
         .control-btn svg {
             width: 18px;
             height: 18px;
@@ -653,6 +673,97 @@
         @media (max-width: 960px) {
             .waveform-layout {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        .truth-table-popup {
+            position: fixed;
+            top: 88px;
+            right: 16px;
+            width: min(520px, 92vw);
+            max-height: 62vh;
+            z-index: 1100;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            background: var(--color-surface);
+            box-shadow: 0 18px 32px var(--color-shadow);
+            display: none;
+            overflow: hidden;
+        }
+
+        .truth-table-popup.open {
+            display: block;
+        }
+
+        .truth-table-popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--color-border);
+            background: var(--color-panel-hover);
+        }
+
+        .truth-table-popup-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--color-text-secondary);
+        }
+
+        .truth-table-popup-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .truth-table-popup-summary {
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .truth-table-popup-table-wrap {
+            overflow: auto;
+            max-height: calc(62vh - 90px);
+            background: var(--color-panel-bg);
+        }
+
+        .truth-table-popup-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        .truth-table-popup-table th,
+        .truth-table-popup-table td {
+            border: 1px solid var(--color-border);
+            padding: 5px 6px;
+            text-align: center;
+        }
+
+        .truth-table-popup-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: var(--color-panel-hover);
+            color: var(--color-text);
+        }
+
+        @media (max-width: 720px) {
+            .truth-table-popup {
+                top: 76px;
+                right: 8px;
+                left: 8px;
+                width: auto;
+                max-height: 56vh;
+            }
+
+            .truth-table-popup-table-wrap {
+                max-height: calc(56vh - 90px);
             }
         }
         /* Activity Terminal */
@@ -1847,7 +1958,8 @@
         .control-select:hover {
             border-color: var(--color-accent);
             background: var(--color-panel-hover);
-        }
+        }
+
         .control-btn svg {
             width: 16px;
             height: 16px;
@@ -1976,12 +2088,433 @@
             }
         }
     </style>
+    <style>
+        :root {
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 10px;
+            --radius-xl: 12px;
+            --color-bg: #faf8f5;
+            --color-surface: #ffffff;
+            --color-text: #2b2520;
+            --color-text-secondary: #6d6257;
+            --color-accent: #b45309;
+            --color-success: #059669;
+            --color-warning: #d97706;
+            --color-danger: #b91c1c;
+            --color-border: #ddd2c4;
+            --color-shadow: rgba(43, 37, 32, 0.08);
+            --color-panel-bg: #ffffff;
+            --color-panel-hover: #f5efe8;
+            --color-socket-hole: #756a5e;
+            --color-zif-bg: #315235;
+            --color-zif-border: #28442c;
+        }
+
+        [data-theme="dark"] {
+            --color-bg: #141313;
+            --color-surface: #1f1d1b;
+            --color-text: #f2eee9;
+            --color-text-secondary: #b4a89b;
+            --color-accent: #d97706;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-border: #3a342d;
+            --color-shadow: rgba(0, 0, 0, 0.3);
+            --color-panel-bg: #1f1d1b;
+            --color-panel-hover: #292623;
+            --color-socket-hole: #8c8173;
+            --color-zif-bg: #2c482f;
+            --color-zif-border: #213724;
+        }
+
+        body {
+            font-family: "Space Grotesk", "JetBrains Mono", sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            padding: 24px 16px 36px;
+            gap: 14px;
+        }
+
+        .header,
+        .control-panel,
+        .terminal-container,
+        .board-container {
+            width: min(1400px, 100%);
+            max-width: 1400px;
+        }
+
+        .header {
+            text-align: left;
+            margin-bottom: 2px;
+            padding-right: 58px;
+            animation: none;
+        }
+
+        .header h1 {
+            font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+            font-weight: 600;
+            letter-spacing: 0;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            margin: 0;
+            font-size: 0.92rem;
+            color: var(--color-text-secondary);
+        }
+
+        .theme-toggle {
+            top: 2px;
+            right: 0;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px var(--color-shadow);
+            transition: background-color 120ms ease, border-color 120ms ease;
+        }
+
+        .theme-toggle:hover,
+        .theme-toggle:active {
+            transform: none;
+            box-shadow: 0 2px 6px var(--color-shadow);
+            background: var(--color-panel-hover);
+        }
+
+        .control-panel {
+            justify-content: flex-start;
+            gap: 10px;
+            animation: none;
+        }
+
+        .control-group {
+            border-radius: var(--radius-md);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            box-shadow: 0 2px 6px var(--color-shadow);
+            padding: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .group-label {
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            padding: 0 8px 0 2px;
+            border-right: 1px solid var(--color-border);
+        }
+
+        .control-btn,
+        .control-select,
+        .terminal-clear,
+        .modal-btn {
+            border-radius: 8px;
+            min-height: 34px;
+            font-weight: 600;
+            transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+        }
+
+        .control-btn {
+            padding: 8px 12px;
+            font-size: 12.5px;
+            border: 1px solid transparent;
+        }
+
+        .control-btn:hover {
+            background: var(--color-panel-hover);
+            border-color: var(--color-border);
+        }
+
+        .control-btn:active {
+            transform: none;
+        }
+
+        .control-btn.active {
+            background: var(--color-accent);
+            border-color: var(--color-accent);
+            color: #fff;
+        }
+
+        .control-select {
+            min-height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--color-border);
+            background: var(--color-panel-bg);
+        }
+
+        #expression-panel {
+            border-radius: 8px !important;
+            border-color: var(--color-border) !important;
+            background: var(--color-panel-bg) !important;
+        }
+
+        .terminal-container {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px var(--color-shadow);
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: var(--color-panel-hover);
+            border-bottom: 1px solid var(--color-border);
+            padding: 9px 12px;
+        }
+
+        .terminal-title {
+            font-size: 12.5px;
+            font-weight: 600;
+        }
+
+        .terminal-body {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 12px;
+            max-height: 180px;
+            background: var(--color-panel-bg);
+            padding: 10px 12px;
+        }
+
+        .board-container {
+            border-radius: 12px;
+            border: 1px solid var(--color-border);
+            box-shadow: 0 3px 10px var(--color-shadow);
+            background: var(--color-panel-bg);
+            padding: 14px;
+        }
+
+        .board-container::before {
+            display: none;
+        }
+
+        #wire-layer {
+            pointer-events: none;
+        }
+
+        .wire-path {
+            pointer-events: stroke;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .panel {
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            box-shadow: none;
+            background: var(--color-surface);
+            padding: 12px;
+        }
+
+        .panel::before {
+            display: none;
+        }
+
+        .panel:hover {
+            transform: none;
+            background: var(--color-panel-hover);
+        }
+
+        .panel-label {
+            position: static;
+            display: block;
+            margin-bottom: 10px;
+            color: var(--color-text-secondary);
+            background: transparent;
+            padding: 0;
+            border: 0;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .output-section {
+            grid-column: span 3;
+        }
+
+        .decoder-section {
+            grid-column: span 4;
+        }
+
+        .clock-section {
+            grid-column: span 3;
+        }
+
+        .pulse-section {
+            grid-column: span 2;
+        }
+
+        .ic-section {
+            grid-column: 1 / -1;
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            padding: 12px;
+            gap: 10px;
+            background: var(--color-surface);
+        }
+
+        .ic-socket {
+            border: 1px dashed var(--color-border);
+            border-radius: 8px;
+            background: var(--color-panel-hover);
+            min-height: 220px;
+        }
+
+        .power-supply-section,
+        .input-section {
+            grid-column: span 6;
+        }
+
+        .power-panel {
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            box-shadow: none;
+            background: var(--color-surface);
+            padding: 6px 8px;
+        }
+
+        .power-button {
+            border-radius: 8px;
+        }
+
+        .socket {
+            width: 19px;
+            height: 19px;
+            border-width: 2px;
+            box-shadow: none;
+        }
+
+        .socket:hover {
+            transform: none;
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 22%, transparent);
+        }
+
+        .socket.state-high {
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+        }
+
+        .socket.state-low {
+            box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.22);
+        }
+
+        .socket.state-error {
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.28);
+        }
+
+        .switch-box {
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            box-shadow: none;
+        }
+
+        .led {
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text) 20%, transparent);
+        }
+
+        .zif-body {
+            border: 1px solid var(--color-zif-border);
+            border-radius: 8px;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .zif-lever {
+            border-radius: 4px;
+        }
+
+        .ic-socket.selectable,
+        .ic-socket.selectable-remove {
+            border-color: var(--color-accent);
+            background: color-mix(in srgb, var(--color-accent) 10%, var(--color-panel-bg));
+        }
+
+        .ic-socket.selectable:hover,
+        .ic-socket.selectable-remove:hover {
+            transform: none;
+        }
+
+        .modal-overlay {
+            backdrop-filter: none;
+            background: rgba(0, 0, 0, 0.52);
+        }
+
+        .modal {
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        }
+
+        .ic-card {
+            border-radius: 8px;
+        }
+
+        .waveform-panel {
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        }
+
+        .waveform-toolbar {
+            background: var(--color-panel-hover);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .waveform-channel-item {
+            border-radius: 8px;
+        }
+
+        @media (max-width: 1080px) {
+            .output-section,
+            .decoder-section,
+            .clock-section,
+            .pulse-section,
+            .power-supply-section,
+            .input-section {
+                grid-column: span 6;
+            }
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 14px 10px 20px;
+            }
+
+            .header {
+                padding-right: 44px;
+            }
+
+            .main-grid {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+
+            .output-section,
+            .decoder-section,
+            .clock-section,
+            .pulse-section,
+            .power-supply-section,
+            .input-section,
+            .ic-section {
+                grid-column: auto;
+            }
+
+            .theme-toggle {
+                width: 34px;
+                height: 34px;
+            }
+        }
+    </style>
 </head>
 
 <body>
     <div class="header">
         <h1>Web IC Trainer</h1>
-        <p>Professional Circuit Design & Testing Platform</p>
+        <p>Build, wire, and test TTL logic circuits</p>
         <div class="theme-toggle" id="theme-toggle">
             <svg class="moon-icon" viewBox="0 0 24 24">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -2203,6 +2736,19 @@
         </div>
     </div>
 
+    <div class="truth-table-popup" id="truth-table-popup">
+        <div class="truth-table-popup-header">
+            <div class="truth-table-popup-title">Truth Table</div>
+            <div class="truth-table-popup-controls">
+                <button class="control-btn" id="truth-table-popup-copy">Copy CSV</button>
+                <button class="control-btn" id="truth-table-popup-download">Download CSV</button>
+                <button class="control-btn" id="truth-table-popup-close">Close</button>
+            </div>
+        </div>
+        <div class="truth-table-popup-summary" id="truth-table-popup-summary">No data yet.</div>
+        <div class="truth-table-popup-table-wrap" id="truth-table-popup-table-wrap"></div>
+    </div>
+
     <div class="board-container">
         <svg id="wire-layer"></svg>
 
@@ -2389,8 +2935,6 @@
 </body>
 
 </html>
-
-
 
 
 

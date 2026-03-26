@@ -85,6 +85,17 @@ class SystemController {
             signalOptions: []
         };
 
+        this.truthTableView = {
+            panelEl: null,
+            summaryEl: null,
+            tableWrapEl: null,
+            closeBtn: null,
+            copyBtn: null,
+            downloadBtn: null,
+            lastCsv: '',
+            lastRowCount: 0
+        };
+
         this.init();
     }
 
@@ -98,6 +109,7 @@ class SystemController {
         this.setupICModal();
         this.setupPresetExperiments();
         this.setupCircuitJsonIO();
+        this.setupTruthTablePopup();
         this.setupTruthTableGenerator();
         this.setupCodeGenerators();
         this.setupExpressionBuilder();
@@ -796,7 +808,7 @@ class SystemController {
             {
                 id: 'mux-8to1-74ls151',
                 title: '8-to-1 Multiplexer (74LS151)',
-                description: 'S0..S2 select input data and drive L0 (with W on L1)',
+                description: 'Inputs: S0,S1,S2(select) + S3..S7(D0..D4), D5=1 D6=0 D7=1 | Outputs: L0=Y, L1=W',
                 load: () => {
                     this.placeIC('74LS151', document.getElementById('ic-1'), false);
 
@@ -810,9 +822,9 @@ class SystemController {
                     this.connectPins('switch-5', 'ic-1-pin-2');  // D2
                     this.connectPins('switch-6', 'ic-1-pin-1');  // D3
                     this.connectPins('switch-7', 'ic-1-pin-12'); // D4
-                    this.connectPins('gnd', 'ic-1-pin-11');      // D5
+                    this.connectPins('vcc', 'ic-1-pin-11');      // D5
                     this.connectPins('gnd', 'ic-1-pin-10');      // D6
-                    this.connectPins('gnd', 'ic-1-pin-9');       // D7
+                    this.connectPins('vcc', 'ic-1-pin-9');       // D7
 
                     this.connectPins('ic-1-pin-5', 'led-0-in'); // Y
                     this.connectPins('ic-1-pin-6', 'led-1-in'); // W
@@ -821,7 +833,7 @@ class SystemController {
             {
                 id: 'mux-4to1-74ls153',
                 title: '4-to-1 Multiplexer (74LS153)',
-                description: 'Single channel demo: C0..C3 with common S0,S1',
+                description: 'Inputs: S0..S3=1C0..1C3, S4=SEL0, S5=SEL1 | Output: L0=1Y',
                 load: () => {
                     this.placeIC('74LS153', document.getElementById('ic-1'), false);
 
@@ -841,7 +853,7 @@ class SystemController {
             {
                 id: 'mux-2to1-74ls157',
                 title: '2-to-1 Multiplexer (74LS157)',
-                description: 'Single channel demo: A/B selected by S2',
+                description: 'Inputs: S0=1A, S1=1B, S2=SELECT | Output: L0=1Y',
                 load: () => {
                     this.placeIC('74LS157', document.getElementById('ic-1'), false);
 
@@ -855,7 +867,7 @@ class SystemController {
             {
                 id: 'counter-74ls93',
                 title: 'Binary Counter (74LS93)',
-                description: '1Hz clock, L0..L3 show QA..QD (0000 to 1111)',
+                description: 'Input: 1Hz clock | Outputs: L0=QA(LSB), L1=QB, L2=QC, L3=QD(MSB)',
                 load: () => {
                     this.placeIC('74LS93', document.getElementById('ic-1'), false);
 
@@ -873,7 +885,7 @@ class SystemController {
             {
                 id: 'counter-74ls90',
                 title: 'Decade Counter (74LS90)',
-                description: '1Hz clock, L0..L3 show QA..QD',
+                description: 'Input: 1Hz clock | Outputs: L0=QA(LSB), L1=QB, L2=QC, L3=QD (0 to 9)',
                 load: () => {
                     this.placeIC('74LS90', document.getElementById('ic-1'), false);
 
@@ -893,7 +905,7 @@ class SystemController {
             {
                 id: 'dff-74ls74',
                 title: 'D Flip-Flop Operation (74LS74)',
-                description: 'S0 as D, mono pulse as clock, L0/L1 = Q/Qbar',
+                description: 'Inputs: S0=D, pulse button=CLK | Outputs: L0=Q, L1=Qbar',
                 load: () => {
                     this.placeIC('74LS74', document.getElementById('ic-1'), false);
 
@@ -965,7 +977,7 @@ class SystemController {
             {
                 id: 'full-adder',
                 title: 'Full Adder (74LS86 + 74LS08 + 74LS32)',
-                description: 'S0=A, S1=B, S2=Cin, L0=SUM, L1=Cout',
+                description: 'Inputs: S0=A, S1=B, S2=Cin | Outputs: L0=SUM, L1=Cout',
                 load: () => {
                     this.placeIC('74LS86', document.getElementById('ic-1'), false);
                     this.placeIC('74LS08', document.getElementById('ic-2'), false);
@@ -1014,7 +1026,7 @@ class SystemController {
             {
                 id: 'parity-generator',
                 title: 'Parity Generator (74LS86)',
-                description: 'S0 xor S1 xor S2 xor S3 on L0',
+                description: 'S0..S3=data bits, L0=even parity bit (A xor B xor C xor D)',
                 load: () => {
                     this.placeIC('74LS86', document.getElementById('ic-1'), false);
 
@@ -1030,7 +1042,7 @@ class SystemController {
             {
                 id: 'mod6-counter',
                 title: 'Mod-6 Counter (74LS93 + 74LS00)',
-                description: 'Auto-reset at 6 using NAND reset logic',
+                description: 'Input: 1Hz clock | Outputs: L0=QA, L1=QB, L2=QC, L3=QD, L4=reset pulse',
                 load: () => {
                     this.placeIC('74LS93', document.getElementById('ic-1'), false);
                     this.placeIC('74LS00', document.getElementById('ic-2'), false);
@@ -1050,6 +1062,7 @@ class SystemController {
                     this.connectPins('ic-1-pin-9', 'led-1-in');  // QB
                     this.connectPins('ic-1-pin-8', 'led-2-in');  // QC
                     this.connectPins('ic-1-pin-11', 'led-3-in'); // QD
+                    this.connectPins('ic-2-pin-6', 'led-4-in');  // Reset pulse (HIGH at count 6)
                 }
             },
             {
@@ -1068,15 +1081,45 @@ class SystemController {
             }
         ];
 
+        const removedPresetIds = new Set([
+            'mux-8to1-74ls151',
+            'mux-4to1-74ls153',
+            'mux-2to1-74ls157',
+            'counter-74ls93',
+            'counter-74ls90',
+            'full-adder',
+            'mod6-counter',
+            'parity-generator'
+        ]);
+        const removedPresetTitles = new Set([
+            '8-to-1 multiplexer (74ls151)',
+            '4-to-1 multiplexer (74ls153)',
+            '2-to-1 multiplexer (74ls157)',
+            'binary counter (74ls93)',
+            'decade counter (74ls90)',
+            'full adder (74ls86 + 74ls08 + 74ls32)',
+            'mod-6 counter (74ls93 + 74ls00)',
+            'parity generator (74ls86)'
+        ]);
+        const shouldHidePreset = (preset) => {
+            const normalizedTitle = String(preset?.title || '').trim().toLowerCase();
+            return removedPresetIds.has(preset?.id) ||
+                removedPresetTitles.has(normalizedTitle) ||
+                normalizedTitle.includes('parity generator');
+        };
+        const visibleBuiltInPresets = builtInPresets.filter((preset) => !shouldHidePreset(preset));
+
         const savedPresets = this.getSavedPresetRecords().map((record) => ({
             id: record.id,
             title: record.title,
             description: record.description,
             payload: record.payload,
             source: 'saved-json'
-        }));
+        })).filter((preset) => !shouldHidePreset(preset));
 
-        const presets = [...savedPresets, ...builtInPresets];
+        const builtInTitleSet = new Set(visibleBuiltInPresets.map((p) => String(p.title || '').trim().toLowerCase()));
+        const dedupedSavedPresets = savedPresets.filter((p) => !builtInTitleSet.has(String(p.title || '').trim().toLowerCase()));
+        const presets = [...visibleBuiltInPresets, ...dedupedSavedPresets];
         this.presetExperiments = presets;
 
         let selectedPreset = null;
@@ -1086,9 +1129,11 @@ class SystemController {
             this.presetExperiments.forEach(preset => {
                 const card = document.createElement('div');
                 card.className = 'ic-card';
+                const sourceTag = preset.source === 'saved-json' ? 'Saved' : 'Built-in';
                 card.innerHTML = `
                     <div class="ic-card-name">${preset.title}</div>
                     <div class="ic-card-desc">${preset.description}</div>
+                    <div class="ic-card-desc" style="margin-top:4px;opacity:.75;font-size:11px;">${sourceTag}</div>
                 `;
 
                 card.onclick = () => {
@@ -1096,6 +1141,11 @@ class SystemController {
                     card.classList.add('selected');
                     selectedPreset = preset;
                     runBtn.disabled = false;
+                };
+                card.ondblclick = () => {
+                    selectedPreset = preset;
+                    this.runPresetById(preset.id);
+                    modal.classList.remove('show');
                 };
 
                 grid.appendChild(card);
@@ -1111,8 +1161,9 @@ class SystemController {
                 description: record.description,
                 payload: record.payload,
                 source: 'saved-json'
-            }));
-            this.presetExperiments = [...refreshedSavedPresets, ...builtInPresets];
+            })).filter((preset) => !shouldHidePreset(preset));
+            const refreshedDedupedSaved = refreshedSavedPresets.filter((p) => !builtInTitleSet.has(String(p.title || '').trim().toLowerCase()));
+            this.presetExperiments = [...visibleBuiltInPresets, ...refreshedDedupedSaved];
 
             selectedPreset = null;
             runBtn.disabled = true;
@@ -1138,8 +1189,9 @@ class SystemController {
                 description: record.description,
                 payload: record.payload,
                 source: 'saved-json'
-            }));
-            this.presetExperiments = [...refreshedSavedPresets, ...builtInPresets];
+            })).filter((preset) => !shouldHidePreset(preset));
+            const refreshedDedupedSaved = refreshedSavedPresets.filter((p) => !builtInTitleSet.has(String(p.title || '').trim().toLowerCase()));
+            this.presetExperiments = [...visibleBuiltInPresets, ...refreshedDedupedSaved];
 
             selectedPreset = null;
             runBtn.disabled = true;
@@ -1648,6 +1700,75 @@ class SystemController {
         this.log('Waveform', 'WF', `Waveform exported: ${filename}`);
     }
 
+    setupTruthTablePopup() {
+        const panelEl = document.getElementById('truth-table-popup');
+        if (!panelEl) return;
+
+        this.truthTableView.panelEl = panelEl;
+        this.truthTableView.summaryEl = document.getElementById('truth-table-popup-summary');
+        this.truthTableView.tableWrapEl = document.getElementById('truth-table-popup-table-wrap');
+        this.truthTableView.closeBtn = document.getElementById('truth-table-popup-close');
+        this.truthTableView.copyBtn = document.getElementById('truth-table-popup-copy');
+        this.truthTableView.downloadBtn = document.getElementById('truth-table-popup-download');
+
+        this.truthTableView.closeBtn?.addEventListener('click', () => {
+            this.truthTableView.panelEl?.classList.remove('open');
+        });
+
+        this.truthTableView.copyBtn?.addEventListener('click', async () => {
+            const csv = this.truthTableView.lastCsv;
+            if (!csv) return;
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(csv);
+                    this.log('TruthTable', 'TT', `Copied ${this.truthTableView.lastRowCount} row(s) from popup.`);
+                }
+            } catch (_) {
+                this.log('TruthTable', '!', 'Failed to copy truth table from popup.');
+            }
+        });
+
+        this.truthTableView.downloadBtn?.addEventListener('click', () => {
+            const csv = this.truthTableView.lastCsv;
+            if (!csv) return;
+            const filename = `truth-table-${Date.now()}.csv`;
+            this.downloadTextFile(filename, csv, 'text/csv');
+            this.log('TruthTable', 'TT', `Downloaded popup truth table as ${filename}.`);
+        });
+    }
+
+    showTruthTablePopup(inputIndices, outputIndices, rows) {
+        const panelEl = this.truthTableView.panelEl;
+        const summaryEl = this.truthTableView.summaryEl;
+        const tableWrapEl = this.truthTableView.tableWrapEl;
+        if (!panelEl || !summaryEl || !tableWrapEl) return;
+
+        const inputHeaders = inputIndices.map(i => `S${i}`);
+        const outputHeaders = outputIndices.map(i => `L${i}`);
+        const headerCells = [...inputHeaders, ...outputHeaders]
+            .map(label => `<th>${label}</th>`)
+            .join('');
+        const bodyRows = rows.map((row) => {
+            const cells = [...row.inputBits, ...row.outputBits]
+                .map(bit => `<td>${bit}</td>`)
+                .join('');
+            return `<tr>${cells}</tr>`;
+        }).join('');
+
+        const csv = this.buildTruthTableCsv(inputIndices, outputIndices, rows);
+        this.truthTableView.lastCsv = csv;
+        this.truthTableView.lastRowCount = rows.length;
+
+        summaryEl.textContent = `${rows.length} row(s), Inputs: ${inputHeaders.join(', ')}, Outputs: ${outputHeaders.join(', ')}`;
+        tableWrapEl.innerHTML = `
+            <table class="truth-table-popup-table">
+                <thead><tr>${headerCells}</tr></thead>
+                <tbody>${bodyRows}</tbody>
+            </table>
+        `;
+        panelEl.classList.add('open');
+    }
+
     setupTruthTableGenerator() {
         const btn = document.getElementById('truth-table-btn');
         if (!btn) return;
@@ -1696,20 +1817,8 @@ class SystemController {
                 document.getElementById('power-btn')?.click();
             }
 
-            const csv = this.buildTruthTableCsv(inputIndices, outputIndices, rows);
-            const filename = `truth-table-${Date.now()}.csv`;
-            this.downloadTextFile(filename, csv, 'text/csv');
-
-            try {
-                if (navigator.clipboard?.writeText) {
-                    await navigator.clipboard.writeText(csv);
-                    this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Downloaded ${filename} and copied CSV.`);
-                } else {
-                    this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Downloaded ${filename}.`);
-                }
-            } catch {
-                this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Downloaded ${filename}.`);
-            }
+            this.showTruthTablePopup(inputIndices, outputIndices, rows);
+            this.log('TruthTable', 'TT', `Generated ${rows.length} row(s). Use popup buttons to copy or download CSV.`);
         });
     }
 
@@ -3575,12 +3684,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-
-
-
-
-
-
-
-

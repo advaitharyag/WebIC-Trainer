@@ -1,0 +1,198 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.3
+2 info using node@v22.19.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:D:\WebIC-Trainer\.npmrc
+5 silly config load:file:C:\Users\TECQNIO\.npmrc
+6 silly config load:file:C:\Users\TECQNIO\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install pptxgenjs
+8 verbose argv "install" "pptxgenjs" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:D:\WebIC-Trainer\.npm-cache\_logs\2026-03-26T23_13_36_604Z-
+10 verbose logfile D:\WebIC-Trainer\.npm-cache\_logs\2026-03-26T23_13_36_604Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest pptxgenjs@*
+15 silly packumentCache full:https://registry.npmjs.org/pptxgenjs cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/npm 477ms
+17 http fetch GET 200 https://registry.npmjs.org/pptxgenjs 604ms (cache miss)
+18 silly packumentCache full:https://registry.npmjs.org/pptxgenjs set size:undefined disposed:false
+19 silly placeDep ROOT pptxgenjs@4.0.1 OK for:  want: *
+20 silly fetch manifest @types/node@^22.8.1
+21 silly packumentCache full:https://registry.npmjs.org/@types%2fnode cache-miss
+22 silly fetch manifest https@^1.0.0
+23 silly packumentCache full:https://registry.npmjs.org/https cache-miss
+24 silly fetch manifest image-size@^1.2.1
+25 silly packumentCache full:https://registry.npmjs.org/image-size cache-miss
+26 silly fetch manifest jszip@^3.10.1
+27 silly packumentCache full:https://registry.npmjs.org/jszip cache-miss
+28 http fetch GET 200 https://registry.npmjs.org/jszip 282ms (cache miss)
+29 silly packumentCache full:https://registry.npmjs.org/jszip set size:undefined disposed:false
+30 http fetch GET 200 https://registry.npmjs.org/https 374ms (cache miss)
+31 silly packumentCache full:https://registry.npmjs.org/https set size:undefined disposed:false
+32 http fetch GET 200 https://registry.npmjs.org/@types%2fnode 404ms (cache miss)
+33 silly packumentCache full:https://registry.npmjs.org/@types%2fnode set size:undefined disposed:false
+34 http fetch GET 200 https://registry.npmjs.org/image-size 688ms (cache miss)
+35 silly packumentCache full:https://registry.npmjs.org/image-size set size:undefined disposed:false
+36 silly placeDep ROOT @types/node@22.19.15 OK for: pptxgenjs@4.0.1 want: ^22.8.1
+37 silly placeDep ROOT https@1.0.0 OK for: pptxgenjs@4.0.1 want: ^1.0.0
+38 silly placeDep ROOT image-size@1.2.1 OK for: pptxgenjs@4.0.1 want: ^1.2.1
+39 silly placeDep ROOT jszip@3.10.1 OK for: pptxgenjs@4.0.1 want: ^3.10.1
+40 silly fetch manifest undici-types@~6.21.0
+41 silly packumentCache full:https://registry.npmjs.org/undici-types cache-miss
+42 silly fetch manifest queue@6.0.2
+43 silly packumentCache full:https://registry.npmjs.org/queue cache-miss
+44 silly fetch manifest lie@~3.3.0
+45 silly packumentCache full:https://registry.npmjs.org/lie cache-miss
+46 silly fetch manifest pako@~1.0.2
+47 silly packumentCache full:https://registry.npmjs.org/pako cache-miss
+48 silly fetch manifest setimmediate@^1.0.5
+49 silly packumentCache full:https://registry.npmjs.org/setimmediate cache-miss
+50 silly fetch manifest readable-stream@~2.3.6
+51 silly packumentCache full:https://registry.npmjs.org/readable-stream cache-miss
+52 http fetch GET 200 https://registry.npmjs.org/undici-types 103ms (cache miss)
+53 silly packumentCache full:https://registry.npmjs.org/undici-types set size:undefined disposed:false
+54 http fetch GET 200 https://registry.npmjs.org/pako 104ms (cache miss)
+55 silly packumentCache full:https://registry.npmjs.org/pako set size:undefined disposed:false
+56 http fetch GET 200 https://registry.npmjs.org/setimmediate 239ms (cache miss)
+57 silly packumentCache full:https://registry.npmjs.org/setimmediate set size:undefined disposed:false
+58 http fetch GET 200 https://registry.npmjs.org/readable-stream 241ms (cache miss)
+59 silly packumentCache full:https://registry.npmjs.org/readable-stream set size:undefined disposed:false
+60 http fetch GET 200 https://registry.npmjs.org/queue 341ms (cache miss)
+61 silly packumentCache full:https://registry.npmjs.org/queue set size:undefined disposed:false
+62 http fetch GET 200 https://registry.npmjs.org/lie 849ms (cache miss)
+63 silly packumentCache full:https://registry.npmjs.org/lie set size:undefined disposed:false
+64 silly placeDep ROOT undici-types@6.21.0 OK for: @types/node@22.19.15 want: ~6.21.0
+65 silly placeDep ROOT queue@6.0.2 OK for: image-size@1.2.1 want: 6.0.2
+66 silly fetch manifest inherits@~2.0.3
+67 silly packumentCache full:https://registry.npmjs.org/inherits cache-miss
+68 http fetch GET 200 https://registry.npmjs.org/inherits 75ms (cache miss)
+69 silly packumentCache full:https://registry.npmjs.org/inherits set size:undefined disposed:false
+70 silly placeDep ROOT lie@3.3.0 OK for: jszip@3.10.1 want: ~3.3.0
+71 silly placeDep ROOT pako@1.0.11 OK for: jszip@3.10.1 want: ~1.0.2
+72 silly placeDep ROOT readable-stream@2.3.8 OK for: jszip@3.10.1 want: ~2.3.6
+73 silly placeDep ROOT setimmediate@1.0.5 OK for: jszip@3.10.1 want: ^1.0.5
+74 silly fetch manifest immediate@~3.0.5
+75 silly packumentCache full:https://registry.npmjs.org/immediate cache-miss
+76 silly fetch manifest isarray@~1.0.0
+77 silly packumentCache full:https://registry.npmjs.org/isarray cache-miss
+78 silly fetch manifest safe-buffer@~5.1.1
+79 silly packumentCache full:https://registry.npmjs.org/safe-buffer cache-miss
+80 silly fetch manifest core-util-is@~1.0.0
+81 silly packumentCache full:https://registry.npmjs.org/core-util-is cache-miss
+82 silly fetch manifest string_decoder@~1.1.1
+83 silly packumentCache full:https://registry.npmjs.org/string_decoder cache-miss
+84 silly fetch manifest util-deprecate@~1.0.1
+85 silly packumentCache full:https://registry.npmjs.org/util-deprecate cache-miss
+86 silly fetch manifest process-nextick-args@~2.0.0
+87 silly packumentCache full:https://registry.npmjs.org/process-nextick-args cache-miss
+88 http fetch GET 200 https://registry.npmjs.org/core-util-is 101ms (cache miss)
+89 silly packumentCache full:https://registry.npmjs.org/core-util-is set size:undefined disposed:false
+90 http fetch GET 200 https://registry.npmjs.org/util-deprecate 101ms (cache miss)
+91 silly packumentCache full:https://registry.npmjs.org/util-deprecate set size:undefined disposed:false
+92 http fetch GET 200 https://registry.npmjs.org/string_decoder 102ms (cache miss)
+93 silly packumentCache full:https://registry.npmjs.org/string_decoder set size:undefined disposed:false
+94 http fetch GET 200 https://registry.npmjs.org/isarray 106ms (cache miss)
+95 silly packumentCache full:https://registry.npmjs.org/isarray set size:undefined disposed:false
+96 http fetch GET 200 https://registry.npmjs.org/immediate 160ms (cache miss)
+97 silly packumentCache full:https://registry.npmjs.org/immediate set size:undefined disposed:false
+98 http fetch GET 200 https://registry.npmjs.org/safe-buffer 163ms (cache miss)
+99 silly packumentCache full:https://registry.npmjs.org/safe-buffer set size:undefined disposed:false
+100 http fetch GET 200 https://registry.npmjs.org/process-nextick-args 293ms (cache miss)
+101 silly packumentCache full:https://registry.npmjs.org/process-nextick-args set size:undefined disposed:false
+102 silly placeDep ROOT immediate@3.0.6 OK for: lie@3.3.0 want: ~3.0.5
+103 silly placeDep ROOT inherits@2.0.4 OK for: queue@6.0.2 want: ~2.0.3
+104 silly placeDep ROOT core-util-is@1.0.3 OK for: readable-stream@2.3.8 want: ~1.0.0
+105 silly placeDep ROOT isarray@1.0.0 OK for: readable-stream@2.3.8 want: ~1.0.0
+106 silly placeDep ROOT process-nextick-args@2.0.1 OK for: readable-stream@2.3.8 want: ~2.0.0
+107 silly placeDep ROOT safe-buffer@5.1.2 OK for: readable-stream@2.3.8 want: ~5.1.1
+108 silly placeDep ROOT string_decoder@1.1.1 OK for: readable-stream@2.3.8 want: ~1.1.1
+109 silly placeDep ROOT util-deprecate@1.0.2 OK for: readable-stream@2.3.8 want: ~1.0.1
+110 silly reify moves {}
+111 http cache util-deprecate@https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz 0ms (cache hit)
+112 http cache string_decoder@https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz 0ms (cache hit)
+113 http cache safe-buffer@https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz 0ms (cache hit)
+114 http cache process-nextick-args@https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz 0ms (cache hit)
+115 http cache isarray@https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz 0ms (cache hit)
+116 http cache core-util-is@https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz 0ms (cache hit)
+117 http cache inherits@https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz 0ms (cache hit)
+118 http cache setimmediate@https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz 0ms (cache hit)
+119 http cache immediate@https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz 0ms (cache hit)
+120 http cache pako@https://registry.npmjs.org/pako/-/pako-1.0.11.tgz 0ms (cache hit)
+121 http cache readable-stream@https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz 0ms (cache hit)
+122 http cache @types/node@https://registry.npmjs.org/@types/node/-/node-22.19.15.tgz 0ms (cache hit)
+123 http cache lie@https://registry.npmjs.org/lie/-/lie-3.3.0.tgz 0ms (cache hit)
+124 http cache queue@https://registry.npmjs.org/queue/-/queue-6.0.2.tgz 0ms (cache hit)
+125 http cache undici-types@https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz 0ms (cache hit)
+126 http cache jszip@https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz 0ms (cache hit)
+127 http cache image-size@https://registry.npmjs.org/image-size/-/image-size-1.2.1.tgz 0ms (cache hit)
+128 http cache https@https://registry.npmjs.org/https/-/https-1.0.0.tgz 0ms (cache hit)
+129 http cache pptxgenjs@https://registry.npmjs.org/pptxgenjs/-/pptxgenjs-4.0.1.tgz 0ms (cache hit)
+130 silly tarball no local data for util-deprecate@https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz. Extracting by manifest.
+131 silly tarball no local data for string_decoder@https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz. Extracting by manifest.
+132 silly tarball no local data for safe-buffer@https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz. Extracting by manifest.
+133 silly tarball no local data for process-nextick-args@https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz. Extracting by manifest.
+134 silly tarball no local data for isarray@https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz. Extracting by manifest.
+135 silly tarball no local data for core-util-is@https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz. Extracting by manifest.
+136 silly tarball no local data for inherits@https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz. Extracting by manifest.
+137 silly tarball no local data for setimmediate@https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz. Extracting by manifest.
+138 silly tarball no local data for immediate@https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz. Extracting by manifest.
+139 silly tarball no local data for pako@https://registry.npmjs.org/pako/-/pako-1.0.11.tgz. Extracting by manifest.
+140 silly tarball no local data for readable-stream@https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz. Extracting by manifest.
+141 silly tarball no local data for @types/node@https://registry.npmjs.org/@types/node/-/node-22.19.15.tgz. Extracting by manifest.
+142 silly tarball no local data for lie@https://registry.npmjs.org/lie/-/lie-3.3.0.tgz. Extracting by manifest.
+143 silly tarball no local data for queue@https://registry.npmjs.org/queue/-/queue-6.0.2.tgz. Extracting by manifest.
+144 silly tarball no local data for undici-types@https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz. Extracting by manifest.
+145 silly tarball no local data for jszip@https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz. Extracting by manifest.
+146 silly tarball no local data for image-size@https://registry.npmjs.org/image-size/-/image-size-1.2.1.tgz. Extracting by manifest.
+147 silly tarball no local data for https@https://registry.npmjs.org/https/-/https-1.0.0.tgz. Extracting by manifest.
+148 silly tarball no local data for pptxgenjs@https://registry.npmjs.org/pptxgenjs/-/pptxgenjs-4.0.1.tgz. Extracting by manifest.
+149 http fetch GET 200 https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz 185ms (cache miss)
+150 http fetch GET 200 https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz 190ms (cache miss)
+151 http fetch GET 200 https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz 190ms (cache miss)
+152 http fetch GET 200 https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz 192ms (cache miss)
+153 http fetch GET 200 https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz 191ms (cache miss)
+154 http fetch GET 200 https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz 207ms (cache miss)
+155 http fetch GET 200 https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz 230ms (cache miss)
+156 http fetch GET 200 https://registry.npmjs.org/https/-/https-1.0.0.tgz 226ms (cache miss)
+157 http fetch GET 200 https://registry.npmjs.org/queue/-/queue-6.0.2.tgz 320ms (cache miss)
+158 http fetch GET 200 https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz 420ms (cache miss)
+159 http fetch GET 200 https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz 502ms (cache miss)
+160 http fetch GET 200 https://registry.npmjs.org/lie/-/lie-3.3.0.tgz 557ms (cache miss)
+161 http fetch GET 200 https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz 733ms (cache miss)
+162 http fetch GET 200 https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz 766ms (cache miss)
+163 http fetch GET 200 https://registry.npmjs.org/image-size/-/image-size-1.2.1.tgz 826ms (cache miss)
+164 http fetch GET 200 https://registry.npmjs.org/pako/-/pako-1.0.11.tgz 917ms (cache miss)
+165 http fetch GET 200 https://registry.npmjs.org/pptxgenjs/-/pptxgenjs-4.0.1.tgz 951ms (cache miss)
+166 http fetch GET 200 https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz 976ms (cache miss)
+167 http fetch GET 200 https://registry.npmjs.org/@types/node/-/node-22.19.15.tgz 1184ms (cache miss)
+168 silly ADD node_modules/util-deprecate
+169 silly ADD node_modules/string_decoder
+170 silly ADD node_modules/safe-buffer
+171 silly ADD node_modules/process-nextick-args
+172 silly ADD node_modules/isarray
+173 silly ADD node_modules/core-util-is
+174 silly ADD node_modules/inherits
+175 silly ADD node_modules/immediate
+176 silly ADD node_modules/setimmediate
+177 silly ADD node_modules/readable-stream
+178 silly ADD node_modules/pako
+179 silly ADD node_modules/lie
+180 silly ADD node_modules/queue
+181 silly ADD node_modules/undici-types
+182 silly ADD node_modules/jszip
+183 silly ADD node_modules/image-size
+184 silly ADD node_modules/https
+185 silly ADD node_modules/@types/node
+186 silly ADD node_modules/pptxgenjs
+187 verbose cwd D:\WebIC-Trainer
+188 verbose os Windows_NT 10.0.22631
+189 verbose node v22.19.0
+190 verbose npm  v10.9.3
+191 notice
+191 notice New major version of npm available! 10.9.3 -> 11.12.1
+191 notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.1
+191 notice To update run: npm install -g npm@11.12.1
+191 notice  { force: true, [Symbol(proc-log.meta)]: true }
+192 verbose exit 0
+193 info ok

@@ -7,25 +7,6 @@
     <title>Web IC Trainer</title>
     <script>
         (function () {
-            var params = new URLSearchParams(window.location.search);
-            var launchedFromLanding = params.get('launch') === '1';
-
-            try {
-                if (launchedFromLanding) {
-                    sessionStorage.setItem('webic-landing-seen', '1');
-                }
-
-                if (!launchedFromLanding && sessionStorage.getItem('webic-landing-seen') !== '1') {
-                    window.location.replace('landing.html');
-                    return;
-                }
-            } catch (e) {
-                if (!launchedFromLanding) {
-                    window.location.replace('landing.html');
-                    return;
-                }
-            }
-
             try {
                 var savedTheme = localStorage.getItem('ic-trainer-theme');
                 if (savedTheme === 'dark') {
@@ -2935,7 +2916,6 @@
 </body>
 
 </html>
-
 
 
 

@@ -118,6 +118,7 @@ Example:
 1. Clone repo
 2. Open a local server from project root
 3. Open `http://localhost:8080/` (or your selected port)
+4. The app opens directly to the trainer (`index.html`) with no landing-page redirect
 
 Option A (Python):
 
@@ -133,22 +134,12 @@ cd D:\WebIC-Trainer
 npx http-server -p 8080
 ```
 
-## Deploy to Vercel
-
-This project is static and deploys directly from root.
-
-1. Push repository to GitHub
-2. Import project in Vercel
-3. Framework preset: **Other**
-4. Build command: *(leave empty)*
-5. Output directory: *(leave empty / root static)*
-6. Deploy
-
 ## Project Structure
 
 ```text
 .
 |-- index.html
+|-- .gitignore
 |-- js/
 |   |-- ui.js
 |   |-- simulation.js

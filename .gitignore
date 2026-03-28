@@ -1,0 +1,7 @@
+# Dependencies and local caches
+node_modules/
+.npm-cache/
+
+# Optional local package management files (not required for static app runtime)
+package.json
+package-lock.json
